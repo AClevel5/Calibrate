@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% set s = summary %}
+{% block title %}{{ s.day.strftime('%a %b %-d') }} · Calibrate{% endblock %}
+
+{% block content %}
+<section class="dayhead">
+  <a class="nav-arrow" href="/day/{{ prev_day.isoformat() }}" aria-label="Previous day">‹</a>
+  <div class="dayhead-title">
+    <h1>{{ s.day.strftime('%A') }}</h1>
+    <p>{{ s.day.strftime('%B %-d, %Y') }}{% if s.day == today %} · Today{% endif %}</p>
+  </div>
+  <a class="nav-arrow" href="/day/{{ next_day.isoformat() }}" aria-label="Next day">›</a>
+</section>
+
+<section class="net-card {{ 'deficit' if s.net <= 0 else 'surplus' }}">
+  <div class="net-main">
+    <span class="net-value">{{ s.net | num }}</span>
+    <span class="net-label">net kcal · {{ 'deficit' if s.net <= 0 else 'surplus' }}</span>
+  </div>
+  <div class="net-breakdown">
+    <div><strong>{{ s.consumed.calories | num }}</strong><span>consumed</span></div>
+    <div class="minus">−</div>
+    <div><strong>{{ s.tdee | num }}</strong><span>TDEE burned</span></div>
+  </div>
+</section>
+
+<section class="macros">
+  {% for label, val, cls in [
+      ('Protein', s.consumed.protein, 'p'),
+      ('Carbs', s.consumed.carbs, 'c'),
+      ('Fat', s.consumed.fat, 'f')] %}
+  <div class="macro {{ cls }}">
+    <span class="macro-val">{{ val | num(1) }}<small>g</small></span>
+    <span class="macro-label">{{ label }}</span>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="energy-row">
+  <button class="link-btn" id="edit-energy"
+          data-active="{{ s.active_kcal }}" data-resting="{{ s.resting_kcal }}">
+    ⚡ Active {{ s.active_kcal | num }} · Resting {{ s.resting_kcal | num }} kcal
+    <span class="edit-hint">edit</span>
+  </button>
+</section>
+
+{% for meal in meals %}
+<section class="meal">
+  <h2>{{ meal | capitalize }}
+    <button class="add-btn" data-meal="{{ meal }}">＋</button>
+  </h2>
+  {% set items = by_meal[meal] %}
+  {% if items %}
+  <ul class="entries">
+    {% for e in items %}
+    <li>
+      <div class="entry-main">
+        <span class="entry-name">{{ e.name }}{% if e.brand %} <small>{{ e.brand }}</small>{% endif %}</span>
+        <span class="entry-sub">{{ e.quantity_g | num }} g · P{{ e.protein | num }} C{{ e.carbs | num }} F{{ e.fat | num }}</span>
+      </div>
+      <span class="entry-cal">{{ e.calories | num }}</span>
+      <button class="del-btn" data-id="{{ e.id }}" aria-label="Delete">✕</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">Nothing logged.</p>
+  {% endif %}
+</section>
+{% endfor %}
+
+<!-- Add-food sheet -->
+<div class="sheet-backdrop" id="sheet" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <strong id="sheet-meal">Add food</strong>
+      <button class="close-btn" id="sheet-close">✕</button>
+    </div>
+
+    <div class="search-row">
+      <input id="food-q" type="search" placeholder="Search foods…" autocomplete="off">
+      <button id="scan-btn" title="Scan barcode">📷</button>
+    </div>
+
+    <div id="scanner" hidden><div id="reader"></div>
+      <button class="link-btn" id="scan-stop">Stop camera</button>
+    </div>
+
+    <ul class="results" id="results"></ul>
+
+    <form id="entry-form" hidden>
+      <div class="picked">
+        <strong id="picked-name"></strong>
+        <span id="picked-per100"></span>
+      </div>
+      <label>Quantity (g)
+        <input id="qty" type="number" min="1" step="1" value="100" inputmode="numeric">
+      </label>
+      <div class="live-macros" id="live-macros"></div>
+      <button type="submit" class="primary">Add to {{ '' }}<span id="form-meal"></span></button>
+      <button type="button" class="link-btn" id="pick-back">← back to search</button>
+    </form>
+  </div>
+</div>
+
+<!-- Energy edit sheet -->
+<div class="sheet-backdrop" id="energy-sheet" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><strong>Energy burned (TDEE)</strong>
+      <button class="close-btn" id="energy-close">✕</button></div>
+    <form id="energy-form">
+      <label>Active energy (kcal)
+        <input id="active" type="number" min="0" step="1" inputmode="numeric"></label>
+      <label>Resting energy (kcal)
+        <input id="resting" type="number" min="0" step="1" inputmode="numeric"></label>
+      <p class="hint">Pulled automatically from Apple Health if you set up the
+        Shortcut (see README). Otherwise enter manually.</p>
+      <button type="submit" class="primary">Save</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>window.CALIBRATE_DATE = "{{ s.day.isoformat() }}";</script>
+<script src="/static/app.js"></script>
+{% endblock %}

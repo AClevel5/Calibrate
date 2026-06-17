@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Week of {{ monday.strftime('%b %-d') }} · Calibrate{% endblock %}
+
+{% block content %}
+<section class="dayhead">
+  <a class="nav-arrow" href="/week/{{ prev_week.isoformat() }}" aria-label="Previous week">‹</a>
+  <div class="dayhead-title">
+    <h1>Week at a glance</h1>
+    <p>{{ monday.strftime('%b %-d') }} – {{ sunday.strftime('%b %-d, %Y') }}</p>
+  </div>
+  <a class="nav-arrow" href="/week/{{ next_week.isoformat() }}" aria-label="Next week">›</a>
+</section>
+
+<section class="net-card {{ 'deficit' if totals.net <= 0 else 'surplus' }}">
+  <div class="net-main">
+    <span class="net-value">{{ totals.net | num }}</span>
+    <span class="net-label">net kcal this week · {{ 'deficit' if totals.net <= 0 else 'surplus' }}</span>
+  </div>
+  <div class="net-breakdown">
+    <div><strong>{{ (totals.net / 7) | num }}</strong><span>avg net / day</span></div>
+    <div><strong>{{ totals.protein | num }}</strong><span>g protein</span></div>
+    <div><strong>{{ totals.carbs | num }}</strong><span>g carbs</span></div>
+    <div><strong>{{ totals.fat | num }}</strong><span>g fat</span></div>
+  </div>
+</section>
+
+<section class="week-list">
+  {% for s in summaries %}
+  <a class="week-row {{ 'is-today' if s.day == today }}" href="/day/{{ s.day.isoformat() }}">
+    <div class="week-day">
+      <strong>{{ s.day.strftime('%a') }}</strong>
+      <span>{{ s.day.strftime('%-m/%-d') }}</span>
+    </div>
+    <div class="week-net {{ 'deficit' if s.net <= 0 else 'surplus' }}">
+      <strong>{{ s.net | num }}</strong>
+      <span>net kcal</span>
+    </div>
+    <div class="week-macros">
+      <span class="p">P {{ s.consumed.protein | num }}</span>
+      <span class="c">C {{ s.consumed.carbs | num }}</span>
+      <span class="f">F {{ s.consumed.fat | num }}</span>
+    </div>
+  </a>
+  {% endfor %}
+</section>
+{% endblock %}
