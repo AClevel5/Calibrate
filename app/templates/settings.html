@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Settings · Calibrate{% endblock %}
+{% block content %}
+<section class="dayhead">
+  <div class="dayhead-title"><h1>Settings</h1><p>{{ user.email }}</p></div>
+</section>
+
+{% if saved %}<p class="saved-banner">✓ Saved</p>{% endif %}
+
+<section class="card">
+  <h2>Daily goals</h2>
+  <p class="hint">Set a target of 0 to hide that goal. Calories is an intake target.</p>
+  <form method="post" action="/settings" class="goals-form">
+    <label>Calories (kcal)
+      <input type="number" name="goal_calories" min="0" step="1" value="{{ user.goal_calories | round | int }}">
+    </label>
+    <div class="goal-grid">
+      <label>Protein (g)
+        <input type="number" name="goal_protein" min="0" step="1" value="{{ user.goal_protein | round | int }}">
+      </label>
+      <label>Carbs (g)
+        <input type="number" name="goal_carbs" min="0" step="1" value="{{ user.goal_carbs | round | int }}">
+      </label>
+      <label>Fat (g)
+        <input type="number" name="goal_fat" min="0" step="1" value="{{ user.goal_fat | round | int }}">
+      </label>
+    </div>
+    <button type="submit" class="primary">Save goals</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Apple Health sync</h2>
+  <p class="hint">Set up an Apple Shortcut to POST your daily Active + Resting
+    energy here. See the README for the full recipe.</p>
+  <label>Ingest URL
+    <input type="text" readonly value="{{ ingest_url }}" onclick="this.select()">
+  </label>
+  <label>Your ingest token <small>(send as <code>Authorization: Bearer …</code>)</small>
+    <input type="text" readonly value="{{ user.ingest_token }}" onclick="this.select()">
+  </label>
+  <p class="hint">Keep this token private — it lets a device write energy data to your account.</p>
+</section>
+{% endblock %}

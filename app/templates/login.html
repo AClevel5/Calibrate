@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Log in · Calibrate{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <h1>⚖︎ Calibrate</h1>
+  <p class="auth-sub">Log in to track your day.</p>
+  {% if error %}<p class="auth-error">{{ error }}</p>{% endif %}
+  <form method="post" action="/login">
+    <label>Email
+      <input type="email" name="email" required autocomplete="email" autofocus>
+    </label>
+    <label>Password
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button type="submit" class="primary">Log in</button>
+  </form>
+  <p class="auth-alt">No account? <a href="/register">Create one</a></p>
+</div>
+{% endblock %}
