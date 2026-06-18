@@ -1,13 +1,15 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from .config import settings
 from .database import init_db
-from .routers import api, pages
+from .deps import NotAuthenticated
+from .routers import api, auth, pages
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -19,7 +21,20 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    same_site="lax",
+    max_age=60 * 60 * 24 * 30,  # 30 days
+)
 
+
+@app.exception_handler(NotAuthenticated)
+async def _redirect_to_login(request: Request, exc: NotAuthenticated):
+    return RedirectResponse("/login", status_code=303)
+
+
+app.include_router(auth.router)
 app.include_router(api.router)
 app.include_router(pages.router)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -30,7 +45,7 @@ def healthcheck():
     return {"status": "ok"}
 
 
-# Serve PWA root files from a stable path so the service worker scope is "/".
+# PWA root files served from "/" so the service-worker scope is the whole app.
 @app.get("/manifest.webmanifest", include_in_schema=False)
 def manifest():
     return FileResponse(STATIC_DIR / "manifest.webmanifest", media_type="application/manifest+json")

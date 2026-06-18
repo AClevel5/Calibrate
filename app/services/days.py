@@ -1,4 +1,4 @@
-"""Rollups for the daily and weekly views."""
+"""Rollups for the daily and weekly views (scoped to a user)."""
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -28,17 +28,23 @@ class DaySummary:
         return self.consumed.calories - self.tdee
 
 
-def get_day_summary(db: Session, day: date) -> DaySummary:
+def get_day_summary(db: Session, user_id: int, day: date) -> DaySummary:
     entries = list(
         db.scalars(
-            select(FoodEntry).where(FoodEntry.log_date == day).order_by(FoodEntry.created_at)
+            select(FoodEntry)
+            .where(FoodEntry.user_id == user_id, FoodEntry.log_date == day)
+            .order_by(FoodEntry.created_at)
         )
     )
     consumed = Macros()
     for e in entries:
         consumed = consumed + Macros(e.calories, e.protein, e.carbs, e.fat)
 
-    energy = db.scalar(select(EnergyRecord).where(EnergyRecord.record_date == day))
+    energy = db.scalar(
+        select(EnergyRecord).where(
+            EnergyRecord.user_id == user_id, EnergyRecord.record_date == day
+        )
+    )
     return DaySummary(
         day=day,
         consumed=consumed,
@@ -54,6 +60,6 @@ def week_bounds(day: date) -> tuple[date, date]:
     return monday, monday + timedelta(days=6)
 
 
-def get_week_summaries(db: Session, day: date) -> list[DaySummary]:
+def get_week_summaries(db: Session, user_id: int, day: date) -> list[DaySummary]:
     monday, _ = week_bounds(day)
-    return [get_day_summary(db, monday + timedelta(days=i)) for i in range(7)]
+    return [get_day_summary(db, user_id, monday + timedelta(days=i)) for i in range(7)]

@@ -1,10 +1,12 @@
-/* Calibrate day-view interactions: search, barcode scan, add/delete entries, energy edit. */
+/* Calibrate day-view interactions: search, barcode scan, recent/favorites,
+   one-tap logging, add/delete entries, energy edit. */
 const DATE = window.CALIBRATE_DATE;
 const $ = (sel) => document.querySelector(sel);
 
 let currentMeal = "snack";
 let picked = null; // selected Product (per-100g)
 let scanner = null;
+let activeTab = "recent";
 
 function toast(msg) {
   const t = document.createElement("div");
@@ -24,8 +26,10 @@ function openSheet(meal) {
   $("#results").innerHTML = "";
   $("#food-q").value = "";
   $("#entry-form").hidden = true;
+  $("#save-fav").checked = false;
+  showQuick(true);
+  loadQuick(activeTab);
   sheet.hidden = false;
-  $("#food-q").focus();
 }
 function closeSheet() {
   sheet.hidden = true;
@@ -38,12 +42,100 @@ document.querySelectorAll(".add-btn").forEach((b) =>
 $("#sheet-close").addEventListener("click", closeSheet);
 sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
 
+function showQuick(show) {
+  $("#quick-tabs").hidden = !show;
+  $("#quick-list").hidden = !show;
+}
+
+// ---- recent / favorites tabs -------------------------------------------------
+document.querySelectorAll("#quick-tabs button").forEach((b) =>
+  b.addEventListener("click", () => {
+    activeTab = b.dataset.tab;
+    document.querySelectorAll("#quick-tabs button").forEach((x) =>
+      x.classList.toggle("active", x === b));
+    loadQuick(activeTab);
+  })
+);
+
+async function loadQuick(tab) {
+  const ul = $("#quick-list");
+  ul.innerHTML = `<li class="r-loading">Loading…</li>`;
+  try {
+    const url = tab === "favorites" ? "/api/favorites" : "/api/recent";
+    const items = await (await fetch(url)).json();
+    renderQuick(items, tab);
+  } catch {
+    ul.innerHTML = `<li>Could not load.</li>`;
+  }
+}
+
+function renderQuick(items, tab) {
+  const ul = $("#quick-list");
+  if (!items.length) {
+    ul.innerHTML = `<li class="empty-quick">${tab === "favorites"
+      ? "No favorites yet. Tick “Save to favorites” when adding a food."
+      : "No recent foods yet."}</li>`;
+    return;
+  }
+  ul.innerHTML = "";
+  items.forEach((it) => {
+    const qty = tab === "favorites" ? (it.default_qty_g || 100) : (it.serving_size_g || 100);
+    const li = document.createElement("li");
+    li.className = "quick-item";
+    li.innerHTML =
+      `<div class="qi-main"><div class="r-name">${escapeHtml(it.name)}</div>` +
+      `<div class="r-sub">${it.brand ? escapeHtml(it.brand) + " · " : ""}` +
+      `${Math.round(qty)} g · ${Math.round((it.calories || 0) * qty / 100)} kcal</div></div>` +
+      (tab === "favorites"
+        ? `<button class="qi-act remove" title="Remove favorite">✕</button>`
+        : `<button class="qi-act star" title="Save as favorite">☆</button>`);
+    li.querySelector(".qi-main").addEventListener("click", () => quickAdd(it, qty));
+    const act = li.querySelector(".qi-act");
+    act.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (tab === "favorites") removeFavorite(it.id);
+      else saveFavorite(it, qty);
+    });
+    ul.appendChild(li);
+  });
+}
+
+async function quickAdd(it, qty) {
+  const res = await fetch("/api/entries", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      log_date: DATE, meal: currentMeal, name: it.name, brand: it.brand,
+      quantity_g: qty, calories: it.calories, protein: it.protein,
+      carbs: it.carbs, fat: it.fat, source: it.source, source_id: it.source_id,
+    }),
+  });
+  if (res.ok) location.reload(); else toast("Could not add.");
+}
+
+async function saveFavorite(it, qty) {
+  const res = await fetch("/api/favorites", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: it.name, brand: it.brand, serving_size_g: it.serving_size_g,
+      default_qty_g: qty, calories: it.calories, protein: it.protein,
+      carbs: it.carbs, fat: it.fat, source: it.source, source_id: it.source_id,
+    }),
+  });
+  toast(res.ok ? "Saved to favorites ★" : "Could not save.");
+}
+
+async function removeFavorite(id) {
+  const res = await fetch(`/api/favorites/${id}`, { method: "DELETE" });
+  if (res.ok) loadQuick("favorites");
+}
+
 // ---- search ------------------------------------------------------------------
 let searchTimer = null;
 $("#food-q").addEventListener("input", (e) => {
   clearTimeout(searchTimer);
   const q = e.target.value.trim();
-  if (q.length < 2) { $("#results").innerHTML = ""; return; }
+  if (q.length < 2) { $("#results").innerHTML = ""; showQuick(true); return; }
+  showQuick(false);
   searchTimer = setTimeout(() => runSearch(q), 350);
 });
 
@@ -77,10 +169,12 @@ function pickProduct(p) {
   picked = p;
   $("#results").innerHTML = "";
   $("#food-q").value = "";
+  showQuick(false);
   $("#picked-name").textContent = p.name + (p.brand ? ` · ${p.brand}` : "");
   $("#picked-per100").textContent =
     `${Math.round(p.calories)} kcal · P${round1(p.protein)} C${round1(p.carbs)} F${round1(p.fat)} per 100g`;
   $("#qty").value = p.serving_size_g ? Math.round(p.serving_size_g) : 100;
+  $("#save-fav").checked = false;
   $("#entry-form").hidden = false;
   updateLiveMacros();
 }
@@ -95,6 +189,7 @@ function updateLiveMacros() {
 }
 $("#pick-back").addEventListener("click", () => {
   $("#entry-form").hidden = true;
+  showQuick(true);
   $("#food-q").focus();
 });
 
@@ -103,15 +198,17 @@ $("#entry-form").addEventListener("submit", async (e) => {
   if (!picked) return;
   const qty = Number($("#qty").value);
   if (!qty || qty <= 0) return;
-  const body = {
-    log_date: DATE, meal: currentMeal, name: picked.name, brand: picked.brand,
-    quantity_g: qty, calories: picked.calories, protein: picked.protein,
-    carbs: picked.carbs, fat: picked.fat,
-    food_item_id: picked.food_item_id || null,
-  };
+  if ($("#save-fav").checked) {
+    await saveFavorite(picked, qty);
+  }
   const res = await fetch("/api/entries", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      log_date: DATE, meal: currentMeal, name: picked.name, brand: picked.brand,
+      quantity_g: qty, calories: picked.calories, protein: picked.protein,
+      carbs: picked.carbs, fat: picked.fat,
+      source: picked.source, source_id: picked.source_id,
+    }),
   });
   if (res.ok) { location.reload(); } else { toast("Could not add entry."); }
 });
@@ -131,6 +228,7 @@ $("#scan-stop").addEventListener("click", stopScanner);
 async function startScanner() {
   if (typeof Html5Qrcode === "undefined") { toast("Scanner unavailable offline."); return; }
   $("#scanner").hidden = false;
+  showQuick(false);
   scanner = new Html5Qrcode("reader");
   try {
     await scanner.start(

@@ -1,13 +1,11 @@
-from datetime import date
-
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..config import settings
 from ..database import get_db
-from ..models import EnergyRecord, FoodEntry, FoodItem
-from ..schemas import EnergyUpdate, EntryCreate, Product
+from ..deps import require_api_user
+from ..models import EnergyRecord, Favorite, FoodEntry, User
+from ..schemas import EnergyUpdate, EntryCreate, FavoriteCreate, Product
 from ..services import foodfacts
 from ..services.nutrition import Macros, scale_per_100g
 
@@ -18,7 +16,7 @@ router = APIRouter(prefix="/api")
 
 
 @router.get("/foods/barcode/{barcode}", response_model=Product)
-async def barcode_lookup(barcode: str):
+async def barcode_lookup(barcode: str, user: User = Depends(require_api_user)):
     product = await foodfacts.lookup_barcode(barcode.strip())
     if not product:
         raise HTTPException(404, detail="No product found for that barcode.")
@@ -26,28 +24,24 @@ async def barcode_lookup(barcode: str):
 
 
 @router.get("/foods/search", response_model=list[Product])
-async def food_search(q: str = Query(min_length=2)):
+async def food_search(q: str = Query(min_length=2), user: User = Depends(require_api_user)):
     return await foodfacts.search_foods(q.strip())
 
 
 # ---------------------------------------------------------------- entries
 
 
-def _cache_food_item(db: Session, e: EntryCreate) -> int | None:
-    """Upsert a FoodItem cache row for sourced products (so repeat lookups are local)."""
-    if e.food_item_id:
-        return e.food_item_id
-    return None
-
-
 @router.post("/entries")
-def create_entry(e: EntryCreate, db: Session = Depends(get_db)):
+def create_entry(
+    e: EntryCreate, user: User = Depends(require_api_user), db: Session = Depends(get_db)
+):
     if e.meal not in ("breakfast", "lunch", "dinner", "snack"):
         e.meal = "snack"
     scaled = scale_per_100g(
         Macros(e.calories, e.protein, e.carbs, e.fat), e.quantity_g
     ).rounded()
     entry = FoodEntry(
+        user_id=user.id,
         log_date=e.log_date,
         meal=e.meal,
         name=e.name,
@@ -57,7 +51,12 @@ def create_entry(e: EntryCreate, db: Session = Depends(get_db)):
         protein=scaled.protein,
         carbs=scaled.carbs,
         fat=scaled.fat,
-        food_item_id=_cache_food_item(db, e),
+        cal_per100=e.calories,
+        pro_per100=e.protein,
+        carb_per100=e.carbs,
+        fat_per100=e.fat,
+        source=e.source,
+        source_id=e.source_id,
     )
     db.add(entry)
     db.commit()
@@ -66,11 +65,116 @@ def create_entry(e: EntryCreate, db: Session = Depends(get_db)):
 
 
 @router.delete("/entries/{entry_id}")
-def delete_entry(entry_id: int, db: Session = Depends(get_db)):
+def delete_entry(
+    entry_id: int, user: User = Depends(require_api_user), db: Session = Depends(get_db)
+):
     entry = db.get(FoodEntry, entry_id)
-    if not entry:
+    if not entry or entry.user_id != user.id:
         raise HTTPException(404, detail="Entry not found.")
     db.delete(entry)
+    db.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- recent & favorites
+
+
+@router.get("/recent", response_model=list[Product])
+def recent_foods(
+    user: User = Depends(require_api_user),
+    db: Session = Depends(get_db),
+    limit: int = 12,
+):
+    """Distinct recently-logged foods (most recent first), as per-100 g products."""
+    rows = db.scalars(
+        select(FoodEntry)
+        .where(FoodEntry.user_id == user.id)
+        .order_by(FoodEntry.created_at.desc())
+        .limit(120)
+    )
+    seen: set[tuple[str, str]] = set()
+    out: list[Product] = []
+    for e in rows:
+        key = (e.name.lower(), (e.brand or "").lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            Product(
+                source=e.source or "manual",
+                source_id=e.source_id,
+                name=e.name,
+                brand=e.brand,
+                serving_size_g=e.quantity_g,
+                calories=e.cal_per100,
+                protein=e.pro_per100,
+                carbs=e.carb_per100,
+                fat=e.fat_per100,
+            )
+        )
+        if len(out) >= limit:
+            break
+    return out
+
+
+@router.get("/favorites")
+def list_favorites(
+    user: User = Depends(require_api_user), db: Session = Depends(get_db)
+):
+    favs = db.scalars(
+        select(Favorite).where(Favorite.user_id == user.id).order_by(Favorite.name)
+    )
+    return [
+        {
+            "id": f.id, "name": f.name, "brand": f.brand,
+            "serving_size_g": f.serving_size_g, "default_qty_g": f.default_qty_g,
+            "calories": f.calories, "protein": f.protein, "carbs": f.carbs, "fat": f.fat,
+            "source": f.source, "source_id": f.source_id,
+        }
+        for f in favs
+    ]
+
+
+@router.post("/favorites")
+def add_favorite(
+    f: FavoriteCreate, user: User = Depends(require_api_user), db: Session = Depends(get_db)
+):
+    existing = db.scalar(
+        select(Favorite).where(
+            Favorite.user_id == user.id,
+            Favorite.name == f.name,
+            Favorite.brand == f.brand,
+        )
+    )
+    if existing:
+        return {"id": existing.id, "duplicate": True}
+    fav = Favorite(
+        user_id=user.id,
+        name=f.name,
+        brand=f.brand,
+        serving_size_g=f.serving_size_g,
+        default_qty_g=f.default_qty_g or (f.serving_size_g or 100),
+        calories=f.calories,
+        protein=f.protein,
+        carbs=f.carbs,
+        fat=f.fat,
+        source=f.source,
+        source_id=f.source_id,
+    )
+    db.add(fav)
+    db.commit()
+    db.refresh(fav)
+    return {"id": fav.id}
+
+
+@router.delete("/favorites/{fav_id}")
+def delete_favorite(
+    fav_id: int, user: User = Depends(require_api_user), db: Session = Depends(get_db)
+):
+    fav = db.get(Favorite, fav_id)
+    if not fav or fav.user_id != user.id:
+        raise HTTPException(404, detail="Favorite not found.")
+    db.delete(fav)
     db.commit()
     return {"ok": True}
 
@@ -78,12 +182,15 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------- energy / TDEE
 
 
-def _upsert_energy(db: Session, payload: EnergyUpdate) -> EnergyRecord:
+def _upsert_energy(db: Session, user_id: int, payload: EnergyUpdate) -> EnergyRecord:
     record = db.scalar(
-        select(EnergyRecord).where(EnergyRecord.record_date == payload.record_date)
+        select(EnergyRecord).where(
+            EnergyRecord.user_id == user_id,
+            EnergyRecord.record_date == payload.record_date,
+        )
     )
     if record is None:
-        record = EnergyRecord(record_date=payload.record_date)
+        record = EnergyRecord(user_id=user_id, record_date=payload.record_date)
         db.add(record)
     record.active_kcal = payload.active_kcal
     record.resting_kcal = payload.resting_kcal
@@ -94,8 +201,10 @@ def _upsert_energy(db: Session, payload: EnergyUpdate) -> EnergyRecord:
 
 
 @router.post("/energy")
-def update_energy(payload: EnergyUpdate, db: Session = Depends(get_db)):
-    record = _upsert_energy(db, payload)
+def update_energy(
+    payload: EnergyUpdate, user: User = Depends(require_api_user), db: Session = Depends(get_db)
+):
+    record = _upsert_energy(db, user.id, payload)
     return {"date": record.record_date.isoformat(), "tdee": record.tdee}
 
 
@@ -105,14 +214,16 @@ def ingest_apple_health(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
 ):
-    """Ingest endpoint for an Apple Shortcuts automation that pushes daily
-    Active Energy + Resting Energy. Guard with HEALTH_INGEST_TOKEN when public."""
-    if settings.health_ingest_token:
-        expected = f"Bearer {settings.health_ingest_token}"
-        if authorization != expected:
-            raise HTTPException(401, detail="Invalid or missing ingest token.")
+    """Ingest endpoint for an Apple Shortcuts automation that pushes daily Active +
+    Resting energy. Authenticated by the user's personal ingest token (Bearer)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, detail="Missing bearer token.")
+    token = authorization.removeprefix("Bearer ").strip()
+    user = db.scalar(select(User).where(User.ingest_token == token))
+    if not user:
+        raise HTTPException(401, detail="Invalid ingest token.")
     payload.source = "apple_health"
-    record = _upsert_energy(db, payload)
+    record = _upsert_energy(db, user.id, payload)
     return {
         "date": record.record_date.isoformat(),
         "active_kcal": record.active_kcal,

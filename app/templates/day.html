@@ -24,14 +24,34 @@
   </div>
 </section>
 
+{% if user.goal_calories %}
+<section class="goal-bar-wrap">
+  {% set cal_pct = [ (s.consumed.calories / user.goal_calories * 100), 100 ] | min %}
+  {% set over = s.consumed.calories > user.goal_calories %}
+  <div class="goal-bar-head">
+    <span>Calorie goal</span>
+    <span>{{ s.consumed.calories | num }} / {{ user.goal_calories | num }}
+      {% if over %}<em class="over">({{ (s.consumed.calories - user.goal_calories) | num }} over)</em>
+      {% else %}<em>({{ (user.goal_calories - s.consumed.calories) | num }} left)</em>{% endif %}
+    </span>
+  </div>
+  <div class="goal-bar"><i class="{{ 'over' if over }}" style="width: {{ cal_pct }}%"></i></div>
+</section>
+{% endif %}
+
 <section class="macros">
-  {% for label, val, cls in [
-      ('Protein', s.consumed.protein, 'p'),
-      ('Carbs', s.consumed.carbs, 'c'),
-      ('Fat', s.consumed.fat, 'f')] %}
+  {% for label, val, goal, cls in [
+      ('Protein', s.consumed.protein, user.goal_protein, 'p'),
+      ('Carbs', s.consumed.carbs, user.goal_carbs, 'c'),
+      ('Fat', s.consumed.fat, user.goal_fat, 'f')] %}
   <div class="macro {{ cls }}">
     <span class="macro-val">{{ val | num(1) }}<small>g</small></span>
     <span class="macro-label">{{ label }}</span>
+    {% if goal %}
+      {% set mpct = [ (val / goal * 100), 100 ] | min %}
+      <div class="macro-bar"><i style="width: {{ mpct }}%"></i></div>
+      <span class="macro-goal">/ {{ goal | num }}g</span>
+    {% endif %}
   </div>
   {% endfor %}
 </section>
@@ -86,6 +106,12 @@
       <button class="link-btn" id="scan-stop">Stop camera</button>
     </div>
 
+    <div class="quick-tabs" id="quick-tabs">
+      <button data-tab="recent" class="active">Recent</button>
+      <button data-tab="favorites">Favorites</button>
+    </div>
+    <ul class="results" id="quick-list"></ul>
+
     <ul class="results" id="results"></ul>
 
     <form id="entry-form" hidden>
@@ -97,8 +123,9 @@
         <input id="qty" type="number" min="1" step="1" value="100" inputmode="numeric">
       </label>
       <div class="live-macros" id="live-macros"></div>
-      <button type="submit" class="primary">Add to {{ '' }}<span id="form-meal"></span></button>
-      <button type="button" class="link-btn" id="pick-back">← back to search</button>
+      <label class="check"><input type="checkbox" id="save-fav"> Save to favorites</label>
+      <button type="submit" class="primary">Add to <span id="form-meal"></span></button>
+      <button type="button" class="link-btn" id="pick-back">← back</button>
     </form>
   </div>
 </div>
@@ -114,7 +141,7 @@
       <label>Resting energy (kcal)
         <input id="resting" type="number" min="0" step="1" inputmode="numeric"></label>
       <p class="hint">Pulled automatically from Apple Health if you set up the
-        Shortcut (see README). Otherwise enter manually.</p>
+        Shortcut (Settings → Apple Health sync). Otherwise enter manually.</p>
       <button type="submit" class="primary">Save</button>
     </form>
   </div>

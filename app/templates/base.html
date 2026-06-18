@@ -15,21 +15,29 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/">⚖︎ Calibrate</a>
+    {% if user %}
     <nav>
       <a href="/day/{{ today.isoformat() }}">Today</a>
       <a href="/week/{{ today.isoformat() }}">Week</a>
+      <a href="/settings">Settings</a>
+      <form action="/logout" method="post" class="logout-form">
+        <button type="submit" class="link-btn">Log out</button>
+      </form>
     </nav>
+    {% endif %}
   </header>
 
-  <main>
+  <main{% if not user %} class="centered"{% endif %}>
     {% block content %}{% endblock %}
   </main>
 
+  {% if user %}
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
     }
   </script>
+  {% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

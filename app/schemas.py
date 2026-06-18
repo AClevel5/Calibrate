@@ -29,7 +29,8 @@ class EntryCreate(BaseModel):
     protein: float = 0
     carbs: float = 0
     fat: float = 0
-    food_item_id: int | None = None
+    source: str | None = None
+    source_id: str | None = None
 
 
 class EnergyUpdate(BaseModel):
@@ -37,3 +38,23 @@ class EnergyUpdate(BaseModel):
     active_kcal: float = 0
     resting_kcal: float = 0
     source: str = "manual"
+
+
+class FavoriteCreate(BaseModel):
+    name: str
+    brand: str | None = None
+    serving_size_g: float | None = None
+    default_qty_g: float = 100
+    calories: float = 0
+    protein: float = 0
+    carbs: float = 0
+    fat: float = 0
+    source: str | None = None
+    source_id: str | None = None
+
+
+class GoalUpdate(BaseModel):
+    goal_calories: float = 0
+    goal_protein: float = 0
+    goal_carbs: float = 0
+    goal_fat: float = 0
