@@ -196,6 +196,7 @@ main.centered { min-height: 70vh; display: grid; place-items: center; }
 /* `display: flex` above overrides the UA `[hidden]` rule, so opt back in:
    this selector is more specific and wins whenever the attribute is set. */
 .sheet-backdrop[hidden] { display: none; }
+body.sheet-open { overflow: hidden; }  /* stop the page scrolling behind a sheet */
 .sheet {
   background: var(--card-2); width: 100%; max-width: 560px;
   border-radius: 20px 20px 0 0; padding: 18px;

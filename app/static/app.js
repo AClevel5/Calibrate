@@ -287,6 +287,21 @@ $("#energy-form").addEventListener("submit", async (e) => {
   if (res.ok) location.reload(); else toast("Could not save energy.");
 });
 
+// ---- global sheet behaviour: Escape closes, lock background scroll -----------
+function syncScrollLock() {
+  document.body.classList.toggle("sheet-open", !sheet.hidden || !energySheet.hidden);
+}
+// Keep the scroll lock in sync however a sheet was opened or closed.
+const sheetObserver = new MutationObserver(syncScrollLock);
+[sheet, energySheet].forEach((el) =>
+  sheetObserver.observe(el, { attributes: true, attributeFilter: ["hidden"] }));
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!energySheet.hidden) energySheet.hidden = true;
+  else if (!sheet.hidden) closeSheet();
+});
+
 // ---- utils -------------------------------------------------------------------
 function round1(n) { return Math.round((n || 0) * 10) / 10; }
 function escapeHtml(s) {
