@@ -82,6 +82,7 @@ main.centered { min-height: 70vh; display: grid; place-items: center; }
 
 /* Quick tabs (recent/favorites) */
 .quick-tabs { display: flex; gap: 8px; margin: 12px 0 8px; }
+.quick-tabs[hidden] { display: none; }  /* let the hidden attribute win over flex */
 .quick-tabs button {
   flex: 1; padding: 9px; border: none; border-radius: 10px; cursor: pointer;
   background: var(--card); color: var(--muted); font-weight: 600; font-size: .9rem;
@@ -192,6 +193,9 @@ main.centered { min-height: 70vh; display: grid; place-items: center; }
   position: fixed; inset: 0; background: #000a; z-index: 20;
   display: flex; align-items: flex-end; justify-content: center;
 }
+/* `display: flex` above overrides the UA `[hidden]` rule, so opt back in:
+   this selector is more specific and wins whenever the attribute is set. */
+.sheet-backdrop[hidden] { display: none; }
 .sheet {
   background: var(--card-2); width: 100%; max-width: 560px;
   border-radius: 20px 20px 0 0; padding: 18px;
