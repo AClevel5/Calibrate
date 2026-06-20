@@ -38,10 +38,30 @@ body {
 main { max-width: 560px; margin: 0 auto; padding: 16px; }
 main.centered { min-height: 70vh; display: grid; place-items: center; }
 
-.logout-form { display: inline; margin: 0; }
 .topbar nav { display: flex; align-items: center; gap: 16px; }
-.topbar nav .link-btn { color: var(--muted); font-weight: 600; }
-.topbar nav .link-btn:hover { color: var(--text); }
+
+/* Hamburger menu (Settings / Log out) */
+.menu { position: relative; display: flex; }
+.menu-btn {
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  width: 34px; height: 34px; padding: 8px; background: none; border: none; cursor: pointer;
+}
+.menu-btn span { display: block; height: 2px; border-radius: 2px; background: var(--muted); transition: background .15s; }
+.menu-btn:hover span, .menu-btn[aria-expanded="true"] span { background: var(--text); }
+.menu-drop {
+  position: absolute; right: 0; top: calc(100% + 10px);
+  display: flex; flex-direction: column; min-width: 168px; padding: 6px;
+  background: var(--card-2); border: 1px solid #ffffff14; border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.45); z-index: 20;
+}
+.menu-drop[hidden] { display: none; }  /* let the hidden attribute win over flex */
+.menu-drop a, .menu-drop button {
+  display: block; width: 100%; text-align: left; padding: 11px 12px;
+  background: none; border: none; border-radius: 8px; color: var(--text);
+  font: inherit; font-weight: 500; text-decoration: none; cursor: pointer;
+}
+.menu-drop a:hover, .menu-drop button:hover { background: var(--card); }
+.menu-drop form { margin: 4px 0 0; padding-top: 4px; border-top: 1px solid #ffffff10; }
 
 /* Auth */
 .auth-card {

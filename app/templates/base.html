@@ -20,12 +20,19 @@
     <a class="brand" href="/">calibrate</a>
     {% if user %}
     <nav>
-      <a href="/day/{{ today.isoformat() }}">Today</a>
+      <a href="/day/{{ today.isoformat() }}">Day</a>
       <a href="/week/{{ today.isoformat() }}">Week</a>
-      <a href="/settings">Settings</a>
-      <form action="/logout" method="post" class="logout-form">
-        <button type="submit" class="link-btn">Log out</button>
-      </form>
+      <div class="menu">
+        <button class="menu-btn" id="menu-btn" aria-label="Menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="menu-drop" id="menu-drop" hidden>
+          <a href="/settings">Settings</a>
+          <form action="/logout" method="post">
+            <button type="submit">Log out</button>
+          </form>
+        </div>
+      </div>
     </nav>
     {% endif %}
   </header>
@@ -39,6 +46,23 @@
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
     }
+    // Hamburger dropdown (Settings / Log out)
+    (function () {
+      var btn = document.getElementById("menu-btn");
+      var drop = document.getElementById("menu-drop");
+      if (!btn || !drop) return;
+      function close() { drop.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var willOpen = drop.hidden;
+        drop.hidden = !willOpen;
+        btn.setAttribute("aria-expanded", String(willOpen));
+      });
+      document.addEventListener("click", function (e) {
+        if (!drop.hidden && !drop.contains(e.target) && e.target !== btn) close();
+      });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+    })();
   </script>
   {% endif %}
   {% block scripts %}{% endblock %}
