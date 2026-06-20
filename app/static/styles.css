@@ -1,15 +1,15 @@
 :root {
-  --bg: #0b0f14;
-  --card: #151c25;
-  --card-2: #1c2530;
-  --text: #e8edf2;
-  --muted: #8a98a8;
-  --accent: #10b981;
-  --deficit: #10b981;
-  --surplus: #f59e0b;
-  --p: #60a5fa;
-  --c: #f59e0b;
-  --f: #f472b6;
+  --bg: #0e1812;        /* near-black forest green (logo background) */
+  --card: #16241b;
+  --card-2: #1f3025;
+  --text: #f1f0e6;      /* cream (the fork) */
+  --muted: #8d9d86;     /* muted sage */
+  --accent: #8fb15e;    /* olive/sage green (the targeting ring) */
+  --deficit: #8fb15e;
+  --surplus: #e0883a;   /* warm orange for a calorie surplus */
+  --p: #6fa8dc;         /* protein */
+  --c: #d9b24a;         /* carbs */
+  --f: #e08aac;         /* fat */
   --danger: #ef4444;
   --radius: 16px;
   font-size: 16px;
@@ -28,7 +28,7 @@ body {
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; padding-top: calc(14px + env(safe-area-inset-top));
-  position: sticky; top: 0; background: rgba(11,15,20,.85);
+  position: sticky; top: 0; background: rgba(14,24,18,.85);
   backdrop-filter: blur(10px); z-index: 5; border-bottom: 1px solid #ffffff10;
 }
 .brand { font-weight: 700; color: var(--text); text-decoration: none; font-size: 1.1rem; }
@@ -78,7 +78,7 @@ main.centered { min-height: 70vh; display: grid; place-items: center; }
 .goal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .card input[readonly] { background: #0e141b; cursor: pointer; font-size: .82rem; }
 .card code { background: #0e141b; padding: 1px 5px; border-radius: 5px; }
-.saved-banner { background: #10b98122; color: var(--accent); padding: 10px 14px; border-radius: 10px; }
+.saved-banner { background: #8fb15e22; color: var(--accent); padding: 10px 14px; border-radius: 10px; }
 
 /* Quick tabs (recent/favorites) */
 .quick-tabs { display: flex; gap: 8px; margin: 12px 0 8px; }
@@ -87,7 +87,7 @@ main.centered { min-height: 70vh; display: grid; place-items: center; }
   flex: 1; padding: 9px; border: none; border-radius: 10px; cursor: pointer;
   background: var(--card); color: var(--muted); font-weight: 600; font-size: .9rem;
 }
-.quick-tabs button.active { background: var(--accent); color: #04261b; }
+.quick-tabs button.active { background: var(--accent); color: #0e1812; }
 .quick-item { display: flex; align-items: center; gap: 8px; }
 .quick-item .qi-main { flex: 1; min-width: 0; }
 .qi-act {
@@ -152,7 +152,7 @@ main.centered { min-height: 70vh; display: grid; place-items: center; }
 }
 .add-btn {
   width: 30px; height: 30px; border-radius: 9px; border: none;
-  background: var(--accent); color: #04261b; font-size: 1.2rem; font-weight: 700; cursor: pointer;
+  background: var(--accent); color: #0e1812; font-size: 1.2rem; font-weight: 700; cursor: pointer;
 }
 .entries { list-style: none; margin: 0; padding: 0; }
 .entries li {
@@ -246,7 +246,7 @@ form label { display: block; margin: 12px 0 6px; color: var(--muted); font-size:
 
 .primary {
   width: 100%; padding: 14px; border: none; border-radius: 12px;
-  background: var(--accent); color: #04261b; font-weight: 700; font-size: 1rem; cursor: pointer; margin-top: 6px;
+  background: var(--accent); color: #0e1812; font-weight: 700; font-size: 1rem; cursor: pointer; margin-top: 6px;
 }
 .hint { color: var(--muted); font-size: .8rem; }
 .link-btn.danger { color: var(--danger); display: block; width: 100%; text-align: center; margin-top: 6px; }
