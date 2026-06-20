@@ -1,6 +1,6 @@
 /* Calibrate service worker: cache the app shell, network-first for everything
    else so logged data and lookups always hit the server when online. */
-const CACHE = "calibrate-v5";
+const CACHE = "calibrate-v6";
 const SHELL = ["/static/styles.css", "/static/app.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
@@ -21,6 +21,10 @@ self.addEventListener("fetch", (e) => {
   const { request } = e;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
+
+  // Let the browser handle cross-origin requests (e.g. the ZBar WASM module
+  // from jsDelivr) directly — don't intercept or cache them.
+  if (url.origin !== location.origin) return;
 
   // Never cache API calls.
   if (url.pathname.startsWith("/api/")) return;

@@ -5,7 +5,6 @@ const $ = (sel) => document.querySelector(sel);
 
 let currentMeal = "snack";
 let picked = null; // selected Product (per-100g)
-let scanner = null;
 let activeTab = "recent";
 
 function toast(msg) {
@@ -222,80 +221,85 @@ document.querySelectorAll(".del-btn").forEach((b) =>
 );
 
 // ---- barcode scan ------------------------------------------------------------
-// Primary: native BarcodeDetector (hardware-accelerated, fast) on supporting
-// browsers (Android Chrome). Fallback: html5-qrcode (e.g. iOS Safari).
+// One camera pipeline; only the decoder differs by platform:
+//   • BarcodeDetector — native, hardware-accelerated (Android Chrome)
+//   • ZBar (WASM)     — fast 1D decoder for browsers without it (iOS Safari)
+// ZBar is lazy-loaded the first time you scan so it costs nothing otherwise.
 $("#scan-btn").addEventListener("click", startScanner);
 $("#scan-stop").addEventListener("click", stopScanner);
 
-let nativeStream = null;   // MediaStream for the native path
-let nativeRAF = null;      // requestAnimationFrame handle
-let scanningNative = false;
+let scanStream = null;     // active MediaStream
+let scanning = false;
 let scanHandled = false;   // guards against a barcode firing twice
+let decodeFrame = null;    // (video) => Promise<string|null>
+let zbarModule = null;     // cached WASM module
 
 const BARCODE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "codabar"];
+const ZBAR_URL = "https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js";
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function startScanner() {
   $("#scanner").hidden = false;
   showQuick(false);
   resetScan();
-  if ("BarcodeDetector" in window) {
-    try { await startNative(); return; }
-    catch (_) { /* permission/camera issue → try the fallback */ }
-  }
-  await startFallback();
-}
-
-async function startNative() {
-  const supported = await window.BarcodeDetector.getSupportedFormats();
-  const formats = BARCODE_FORMATS.filter((f) => supported.includes(f));
-  const detector = new window.BarcodeDetector(formats.length ? { formats } : undefined);
-
-  nativeStream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-  });
-  const video = $("#scan-video");
-  $("#scan-stage").hidden = false;
-  $("#reader").hidden = true;
-  video.srcObject = nativeStream;
-  await video.play();
-  scanningNative = true;
-
-  const tick = async () => {
-    if (!scanningNative) return;
-    try {
-      const codes = await detector.detect(video);
-      if (codes && codes.length && codes[0].rawValue) {
-        onGoodScan(codes[0].rawValue);
-        return;
-      }
-    } catch (_) { /* ignore transient detect errors */ }
-    nativeRAF = requestAnimationFrame(tick);
-  };
-  nativeRAF = requestAnimationFrame(tick);
-}
-
-async function startFallback() {
-  if (typeof Html5Qrcode === "undefined") { toast("Scanner unavailable offline."); stopScanner(); return; }
-  $("#scan-stage").hidden = true;
-  $("#reader").hidden = false;
-  scanner = new Html5Qrcode("reader");
   try {
-    await scanner.start(
-      { facingMode: "environment" },
-      { fps: 15, qrbox: { width: 280, height: 170 } },
-      (code) => onGoodScan(code),
-      () => {}
-    );
-  } catch {
-    toast("Camera access denied.");
-    stopScanner();
+    decodeFrame = await buildDecoder();
+  } catch (_) {
+    toast("Scanner failed to load."); stopScanner(); return;
+  }
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+    });
+  } catch (_) {
+    toast("Camera access denied."); stopScanner(); return;
+  }
+  const video = $("#scan-video");
+  video.srcObject = scanStream;
+  await video.play();
+  scanning = true;
+  scanLoop(video);
+}
+
+async function buildDecoder() {
+  if ("BarcodeDetector" in window) {
+    const supported = await window.BarcodeDetector.getSupportedFormats();
+    const formats = BARCODE_FORMATS.filter((f) => supported.includes(f));
+    const detector = new window.BarcodeDetector(formats.length ? { formats } : undefined);
+    return async (video) => {
+      const codes = await detector.detect(video);
+      return codes && codes.length ? codes[0].rawValue : null;
+    };
+  }
+  // ZBar WASM fallback — decode a downscaled frame off a canvas.
+  zbarModule = zbarModule || (await import(ZBAR_URL));
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  return async (video) => {
+    if (!video.videoWidth) return null;
+    const w = 640;
+    const h = Math.round((video.videoHeight * w) / video.videoWidth);
+    canvas.width = w; canvas.height = h;
+    ctx.drawImage(video, 0, 0, w, h);
+    const symbols = await zbarModule.scanImageData(ctx.getImageData(0, 0, w, h));
+    return symbols && symbols.length ? symbols[0].decode() : null;
+  };
+}
+
+async function scanLoop(video) {
+  while (scanning) {
+    try {
+      const code = await decodeFrame(video);
+      if (code) { onGoodScan(code); return; }
+    } catch (_) { /* ignore transient decode errors */ }
+    await sleep(80);  // ~12 fps — plenty, and keeps the CPU/battery in check
   }
 }
 
 function onGoodScan(code) {
   if (scanHandled) return;
   scanHandled = true;
-  navigator.vibrate?.(60);                 // a short buzz confirms the read
+  navigator.vibrate?.(60);                 // a short buzz confirms the read (Android)
   $("#scan-box").classList.add("good");    // light the targeting box green
   $("#scanner").classList.add("scanned");
   $("#scan-hint").textContent = "Got it!";
@@ -307,15 +311,10 @@ function onGoodScan(code) {
 }
 
 async function stopScanner() {
-  scanningNative = false;
-  if (nativeRAF) { cancelAnimationFrame(nativeRAF); nativeRAF = null; }
-  if (nativeStream) { nativeStream.getTracks().forEach((t) => t.stop()); nativeStream = null; }
+  scanning = false;
+  if (scanStream) { scanStream.getTracks().forEach((t) => t.stop()); scanStream = null; }
   const video = $("#scan-video");
   if (video) video.srcObject = null;
-  if (scanner) {
-    try { await scanner.stop(); scanner.clear(); } catch {}
-    scanner = null;
-  }
   $("#scanner").hidden = true;
   resetScan();
 }

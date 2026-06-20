@@ -110,11 +110,10 @@
     </div>
 
     <div id="scanner" hidden>
-      <div id="scan-stage" hidden>
+      <div id="scan-stage">
         <video id="scan-video" playsinline muted></video>
         <div id="scan-box"></div>
       </div>
-      <div id="reader"></div>
       <p class="scan-hint" id="scan-hint">Point the camera at a barcode</p>
       <button class="link-btn" id="scan-stop">Stop camera</button>
     </div>
@@ -177,7 +176,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>window.CALIBRATE_DATE = "{{ s.day.isoformat() }}";</script>
 <script src="/static/app.js"></script>
 {% endblock %}
