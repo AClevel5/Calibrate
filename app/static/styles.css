@@ -227,6 +227,16 @@ body.sheet-open { overflow: hidden; }  /* stop the page scrolling behind a sheet
   padding-bottom: calc(18px + env(safe-area-inset-bottom));
   max-height: 88vh; overflow-y: auto;
 }
+/* Add-food sheet: stable height so the search row never jumps. Header, search,
+   scanner and tabs stay pinned; only the results area scrolls. */
+.search-sheet {
+  height: 85vh; max-height: 85vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.search-sheet > * { flex: 0 0 auto; }
+.search-sheet > .sheet-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-top: 4px;
+}
 .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .close-btn { background: none; border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; }
 .search-row { display: flex; gap: 8px; }

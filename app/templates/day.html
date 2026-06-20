@@ -98,7 +98,7 @@
 
 <!-- Add-food sheet -->
 <div class="sheet-backdrop" id="sheet" hidden>
-  <div class="sheet">
+  <div class="sheet search-sheet">
     <div class="sheet-head">
       <strong id="sheet-meal">Add food</strong>
       <button class="close-btn" id="sheet-close">✕</button>
@@ -122,23 +122,26 @@
       <button data-tab="recent" class="active">Recent</button>
       <button data-tab="favorites">Favorites</button>
     </div>
-    <ul class="results" id="quick-list"></ul>
 
-    <ul class="results" id="results"></ul>
+    <div class="sheet-scroll">
+      <ul class="results" id="quick-list"></ul>
 
-    <form id="entry-form" hidden>
-      <div class="picked">
-        <strong id="picked-name"></strong>
-        <span id="picked-per100"></span>
-      </div>
-      <label>Quantity (g)
-        <input id="qty" type="number" min="1" step="1" value="100" inputmode="numeric">
-      </label>
-      <div class="live-macros" id="live-macros"></div>
-      <label class="check"><input type="checkbox" id="save-fav"> Save to favorites</label>
-      <button type="submit" class="primary">Add to <span id="form-meal"></span></button>
-      <button type="button" class="link-btn" id="pick-back">← back</button>
-    </form>
+      <ul class="results" id="results"></ul>
+
+      <form id="entry-form" hidden>
+        <div class="picked">
+          <strong id="picked-name"></strong>
+          <span id="picked-per100"></span>
+        </div>
+        <label>Quantity (g)
+          <input id="qty" type="number" min="1" step="1" value="100" inputmode="numeric">
+        </label>
+        <div class="live-macros" id="live-macros"></div>
+        <label class="check"><input type="checkbox" id="save-fav"> Save to favorites</label>
+        <button type="submit" class="primary">Add to <span id="form-meal"></span></button>
+        <button type="button" class="link-btn" id="pick-back">← back</button>
+      </form>
+    </div>
   </div>
 </div>
 
