@@ -109,7 +109,13 @@
       <button id="scan-btn" title="Scan barcode">📷</button>
     </div>
 
-    <div id="scanner" hidden><div id="reader"></div>
+    <div id="scanner" hidden>
+      <div id="scan-stage" hidden>
+        <video id="scan-video" playsinline muted></video>
+        <div id="scan-box"></div>
+      </div>
+      <div id="reader"></div>
+      <p class="scan-hint" id="scan-hint">Point the camera at a barcode</p>
       <button class="link-btn" id="scan-stop">Stop camera</button>
     </div>
 

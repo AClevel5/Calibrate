@@ -210,6 +210,26 @@ body.sheet-open { overflow: hidden; }  /* stop the page scrolling behind a sheet
 #scan-btn { width: 48px; font-size: 1.2rem; background: var(--card); border: none; border-radius: 12px; cursor: pointer; }
 #reader { width: 100%; border-radius: 12px; overflow: hidden; margin: 10px 0; }
 
+/* Native BarcodeDetector scanner stage + green "good read" feedback */
+#scan-stage {
+  position: relative; width: 100%; aspect-ratio: 4 / 3;
+  border-radius: 12px; overflow: hidden; background: #000; margin: 10px 0;
+}
+#scan-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+#scan-box {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 78%; height: 44%; border: 3px solid rgba(255, 255, 255, .7);
+  border-radius: 12px; box-shadow: 0 0 0 4000px rgba(0, 0, 0, .28);
+  transition: border-color .15s, box-shadow .15s;
+}
+#scan-box.good {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, .28), 0 0 18px 3px var(--accent);
+}
+#scanner.scanned #reader { outline: 3px solid var(--accent); outline-offset: -3px; }
+.scan-hint { color: var(--muted); font-size: .85rem; text-align: center; margin: 4px 0 8px; }
+#scanner.scanned .scan-hint { color: var(--accent); font-weight: 600; }
+
 input[type=search], input[type=number] {
   width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #ffffff18;
   background: var(--card); color: var(--text); font-size: 1rem;

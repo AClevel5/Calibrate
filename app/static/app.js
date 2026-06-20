@@ -222,19 +222,68 @@ document.querySelectorAll(".del-btn").forEach((b) =>
 );
 
 // ---- barcode scan ------------------------------------------------------------
+// Primary: native BarcodeDetector (hardware-accelerated, fast) on supporting
+// browsers (Android Chrome). Fallback: html5-qrcode (e.g. iOS Safari).
 $("#scan-btn").addEventListener("click", startScanner);
 $("#scan-stop").addEventListener("click", stopScanner);
 
+let nativeStream = null;   // MediaStream for the native path
+let nativeRAF = null;      // requestAnimationFrame handle
+let scanningNative = false;
+let scanHandled = false;   // guards against a barcode firing twice
+
+const BARCODE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "codabar"];
+
 async function startScanner() {
-  if (typeof Html5Qrcode === "undefined") { toast("Scanner unavailable offline."); return; }
   $("#scanner").hidden = false;
   showQuick(false);
+  resetScan();
+  if ("BarcodeDetector" in window) {
+    try { await startNative(); return; }
+    catch (_) { /* permission/camera issue → try the fallback */ }
+  }
+  await startFallback();
+}
+
+async function startNative() {
+  const supported = await window.BarcodeDetector.getSupportedFormats();
+  const formats = BARCODE_FORMATS.filter((f) => supported.includes(f));
+  const detector = new window.BarcodeDetector(formats.length ? { formats } : undefined);
+
+  nativeStream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+  });
+  const video = $("#scan-video");
+  $("#scan-stage").hidden = false;
+  $("#reader").hidden = true;
+  video.srcObject = nativeStream;
+  await video.play();
+  scanningNative = true;
+
+  const tick = async () => {
+    if (!scanningNative) return;
+    try {
+      const codes = await detector.detect(video);
+      if (codes && codes.length && codes[0].rawValue) {
+        onGoodScan(codes[0].rawValue);
+        return;
+      }
+    } catch (_) { /* ignore transient detect errors */ }
+    nativeRAF = requestAnimationFrame(tick);
+  };
+  nativeRAF = requestAnimationFrame(tick);
+}
+
+async function startFallback() {
+  if (typeof Html5Qrcode === "undefined") { toast("Scanner unavailable offline."); stopScanner(); return; }
+  $("#scan-stage").hidden = true;
+  $("#reader").hidden = false;
   scanner = new Html5Qrcode("reader");
   try {
     await scanner.start(
       { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 150 } },
-      onScan,
+      { fps: 15, qrbox: { width: 280, height: 170 } },
+      (code) => onGoodScan(code),
       () => {}
     );
   } catch {
@@ -243,23 +292,53 @@ async function startScanner() {
   }
 }
 
+function onGoodScan(code) {
+  if (scanHandled) return;
+  scanHandled = true;
+  navigator.vibrate?.(60);                 // a short buzz confirms the read
+  $("#scan-box").classList.add("good");    // light the targeting box green
+  $("#scanner").classList.add("scanned");
+  $("#scan-hint").textContent = "Got it!";
+  // brief green flash so the read is visible, then look the product up
+  setTimeout(async () => {
+    await stopScanner();
+    lookupScanned(code);
+  }, 400);
+}
+
 async function stopScanner() {
-  $("#scanner").hidden = true;
+  scanningNative = false;
+  if (nativeRAF) { cancelAnimationFrame(nativeRAF); nativeRAF = null; }
+  if (nativeStream) { nativeStream.getTracks().forEach((t) => t.stop()); nativeStream = null; }
+  const video = $("#scan-video");
+  if (video) video.srcObject = null;
   if (scanner) {
     try { await scanner.stop(); scanner.clear(); } catch {}
     scanner = null;
   }
+  $("#scanner").hidden = true;
+  resetScan();
 }
 
-async function onScan(code) {
-  await stopScanner();
+function resetScan() {
+  scanHandled = false;
+  $("#scan-box").classList.remove("good");
+  $("#scanner").classList.remove("scanned");
+  $("#scan-hint").textContent = "Point the camera at a barcode";
+}
+
+async function lookupScanned(code) {
   $("#results").innerHTML = `<li class="r-loading">Looking up ${escapeHtml(code)}…</li>`;
   try {
     const res = await fetch(`/api/foods/barcode/${encodeURIComponent(code)}`);
-    if (res.ok) { pickProduct(await res.json()); }
-    else { $("#results").innerHTML = `<li>No product for barcode ${escapeHtml(code)}.</li>`; }
+    if (res.ok) {
+      pickProduct(await res.json());
+    } else {
+      $("#results").innerHTML =
+        `<li>Scanned <b>${escapeHtml(code)}</b> — not in the food database. Try searching by name.</li>`;
+    }
   } catch {
-    $("#results").innerHTML = `<li>Lookup failed.</li>`;
+    $("#results").innerHTML = `<li>Lookup failed. Check your connection.</li>`;
   }
 }
 
