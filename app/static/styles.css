@@ -46,7 +46,7 @@ main.centered { min-height: 70vh; display: grid; place-items: center; }
   display: flex; flex-direction: column; justify-content: center; gap: 4px;
   width: 34px; height: 34px; padding: 8px; background: none; border: none; cursor: pointer;
 }
-.menu-btn span { display: block; height: 2px; border-radius: 2px; background: var(--muted); transition: background .15s; }
+.menu-btn span { display: block; height: 2px; border-radius: 2px; background: var(--accent); transition: background .15s; }
 .menu-btn:hover span, .menu-btn[aria-expanded="true"] span { background: var(--text); }
 .menu-drop {
   position: absolute; right: 0; top: calc(100% + 10px);
@@ -241,7 +241,10 @@ body.sheet-open { overflow: hidden; }  /* stop the page scrolling behind a sheet
 .close-btn { background: none; border: none; color: var(--muted); font-size: 1.1rem; cursor: pointer; }
 .search-row { display: flex; gap: 8px; }
 .search-row input { flex: 1; }
-#scan-btn { width: 48px; font-size: 1.2rem; background: var(--card); border: none; border-radius: 12px; cursor: pointer; }
+#scan-btn {
+  width: 48px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--card); color: var(--text); border: none; border-radius: 12px; cursor: pointer;
+}
 /* Camera scanner stage + green "good read" feedback */
 #scan-stage {
   position: relative; width: 100%; aspect-ratio: 4 / 3;

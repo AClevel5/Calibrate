@@ -106,7 +106,17 @@
 
     <div class="search-row">
       <input id="food-q" type="search" placeholder="Search foods…" autocomplete="off">
-      <button id="scan-btn" title="Scan barcode">📷</button>
+      <button id="scan-btn" title="Scan barcode" aria-label="Scan barcode">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="currentColor">
+          <rect x="3" y="5" width="1.6" height="14" rx="0.3"/>
+          <rect x="6" y="5" width="0.9" height="14" rx="0.3"/>
+          <rect x="8.2" y="5" width="2" height="14" rx="0.3"/>
+          <rect x="11.4" y="5" width="1" height="14" rx="0.3"/>
+          <rect x="13.6" y="5" width="1.7" height="14" rx="0.3"/>
+          <rect x="16.4" y="5" width="0.9" height="14" rx="0.3"/>
+          <rect x="18.6" y="5" width="1.9" height="14" rx="0.3"/>
+        </svg>
+      </button>
     </div>
 
     <div id="scanner" hidden>
