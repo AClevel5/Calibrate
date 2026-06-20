@@ -1,6 +1,6 @@
 /* Calibrate service worker: cache the app shell, network-first for everything
    else so logged data and lookups always hit the server when online. */
-const CACHE = "calibrate-v14";
+const CACHE = "calibrate-v15";
 const SHELL = ["/static/styles.css", "/static/app.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
@@ -29,14 +29,21 @@ self.addEventListener("fetch", (e) => {
   // Never cache API calls.
   if (url.pathname.startsWith("/api/")) return;
 
-  // Cache-first for static shell assets.
+  // Stale-while-revalidate for static assets: serve cache fast, but always
+  // refresh it in the background so the next load picks up deploys.
   if (url.pathname.startsWith("/static/") || url.pathname === "/manifest.webmanifest") {
     e.respondWith(
-      caches.match(request).then((hit) => hit || fetch(request).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(request, copy));
-        return res;
-      }))
+      caches.open(CACHE).then((cache) =>
+        cache.match(request).then((hit) => {
+          const fresh = fetch(request)
+            .then((res) => {
+              cache.put(request, res.clone());
+              return res;
+            })
+            .catch(() => hit);
+          return hit || fresh;
+        })
+      )
     );
     return;
   }
