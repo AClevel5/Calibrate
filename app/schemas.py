@@ -33,6 +33,11 @@ class EntryCreate(BaseModel):
     source_id: str | None = None
 
 
+class EntryUpdate(BaseModel):
+    quantity_g: float = Field(gt=0)
+    meal: str | None = None
+
+
 class EnergyUpdate(BaseModel):
     record_date: date
     active_kcal: float = 0

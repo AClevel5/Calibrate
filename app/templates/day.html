@@ -73,7 +73,14 @@
   {% if items %}
   <ul class="entries">
     {% for e in items %}
-    <li>
+    <li class="entry"
+        data-id="{{ e.id }}"
+        data-name="{{ e.name }}"
+        data-qty="{{ e.quantity_g }}"
+        data-cal100="{{ e.cal_per100 }}"
+        data-pro100="{{ e.pro_per100 }}"
+        data-carb100="{{ e.carb_per100 }}"
+        data-fat100="{{ e.fat_per100 }}">
       <div class="entry-main">
         <span class="entry-name">{{ e.name }}{% if e.brand %} <small>{{ e.brand }}</small>{% endif %}</span>
         <span class="entry-sub">{{ e.quantity_g | num }} g · P{{ e.protein | num }} C{{ e.carbs | num }} F{{ e.fat | num }}</span>
@@ -143,6 +150,21 @@
       <p class="hint">Pulled automatically from Apple Health if you set up the
         Shortcut (Settings → Apple Health sync). Otherwise enter manually.</p>
       <button type="submit" class="primary">Save</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit entry sheet -->
+<div class="sheet-backdrop" id="edit-sheet" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><strong id="edit-title">Edit entry</strong>
+      <button class="close-btn" id="edit-close">✕</button></div>
+    <form id="edit-form">
+      <label>Quantity (g)
+        <input id="edit-qty" type="number" min="1" step="1" inputmode="numeric"></label>
+      <div class="live-macros" id="edit-live"></div>
+      <button type="submit" class="primary">Save changes</button>
+      <button type="button" class="link-btn danger" id="edit-delete">Delete entry</button>
     </form>
   </div>
 </div>

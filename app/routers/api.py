@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import require_api_user
 from ..models import EnergyRecord, Favorite, FoodEntry, User
-from ..schemas import EnergyUpdate, EntryCreate, FavoriteCreate, Product
+from ..schemas import EnergyUpdate, EntryCreate, EntryUpdate, FavoriteCreate, Product
 from ..services import foodfacts
 from ..services.nutrition import Macros, scale_per_100g
 
@@ -62,6 +62,41 @@ def create_entry(
     db.commit()
     db.refresh(entry)
     return {"id": entry.id}
+
+
+@router.patch("/entries/{entry_id}")
+def update_entry(
+    entry_id: int,
+    payload: EntryUpdate,
+    user: User = Depends(require_api_user),
+    db: Session = Depends(get_db),
+):
+    entry = db.get(FoodEntry, entry_id)
+    if not entry or entry.user_id != user.id:
+        raise HTTPException(404, detail="Entry not found.")
+    # Re-scale from the stored per-100 g snapshot; fall back to back-calculating
+    # it from the existing totals if the snapshot is missing (older entries).
+    def per100(snapshot: float, total: float) -> float:
+        if snapshot:
+            return snapshot
+        return (total / entry.quantity_g * 100) if entry.quantity_g else 0.0
+
+    base = Macros(
+        per100(entry.cal_per100, entry.calories),
+        per100(entry.pro_per100, entry.protein),
+        per100(entry.carb_per100, entry.carbs),
+        per100(entry.fat_per100, entry.fat),
+    )
+    scaled = scale_per_100g(base, payload.quantity_g).rounded()
+    entry.quantity_g = payload.quantity_g
+    entry.calories = scaled.calories
+    entry.protein = scaled.protein
+    entry.carbs = scaled.carbs
+    entry.fat = scaled.fat
+    if payload.meal in ("breakfast", "lunch", "dinner", "snack"):
+        entry.meal = payload.meal
+    db.commit()
+    return {"id": entry.id, "calories": entry.calories}
 
 
 @router.delete("/entries/{entry_id}")

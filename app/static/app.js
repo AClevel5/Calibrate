@@ -287,18 +287,70 @@ $("#energy-form").addEventListener("submit", async (e) => {
   if (res.ok) location.reload(); else toast("Could not save energy.");
 });
 
+// ---- edit a logged entry -----------------------------------------------------
+const editSheet = $("#edit-sheet");
+let editing = null; // { id, cal100, pro100, carb100, fat100 }
+
+document.querySelectorAll(".entry").forEach((li) =>
+  li.querySelector(".entry-main").addEventListener("click", () => openEdit(li.dataset))
+);
+
+function openEdit(d) {
+  editing = {
+    id: d.id,
+    cal100: Number(d.cal100), pro100: Number(d.pro100),
+    carb100: Number(d.carb100), fat100: Number(d.fat100),
+  };
+  $("#edit-title").textContent = d.name;
+  $("#edit-qty").value = Math.round(Number(d.qty));
+  editSheet.hidden = false;
+  updateEditMacros();
+}
+
+$("#edit-qty").addEventListener("input", updateEditMacros);
+function updateEditMacros() {
+  if (!editing) return;
+  const f = (Number($("#edit-qty").value) || 0) / 100;
+  $("#edit-live").textContent =
+    `= ${Math.round(editing.cal100 * f)} kcal · P${round1(editing.pro100 * f)} ` +
+    `C${round1(editing.carb100 * f)} F${round1(editing.fat100 * f)}`;
+}
+
+$("#edit-close").addEventListener("click", () => (editSheet.hidden = true));
+editSheet.addEventListener("click", (e) => { if (e.target === editSheet) editSheet.hidden = true; });
+
+$("#edit-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const qty = Number($("#edit-qty").value);
+  if (!editing || !qty || qty <= 0) return;
+  const res = await fetch(`/api/entries/${editing.id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quantity_g: qty }),
+  });
+  if (res.ok) location.reload(); else toast("Could not save changes.");
+});
+
+$("#edit-delete").addEventListener("click", async () => {
+  if (!editing) return;
+  const res = await fetch(`/api/entries/${editing.id}`, { method: "DELETE" });
+  if (res.ok) location.reload(); else toast("Could not delete.");
+});
+
 // ---- global sheet behaviour: Escape closes, lock background scroll -----------
 function syncScrollLock() {
-  document.body.classList.toggle("sheet-open", !sheet.hidden || !energySheet.hidden);
+  document.body.classList.toggle(
+    "sheet-open", !sheet.hidden || !energySheet.hidden || !editSheet.hidden
+  );
 }
 // Keep the scroll lock in sync however a sheet was opened or closed.
 const sheetObserver = new MutationObserver(syncScrollLock);
-[sheet, energySheet].forEach((el) =>
+[sheet, energySheet, editSheet].forEach((el) =>
   sheetObserver.observe(el, { attributes: true, attributeFilter: ["hidden"] }));
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (!energySheet.hidden) energySheet.hidden = true;
+  if (!editSheet.hidden) editSheet.hidden = true;
+  else if (!energySheet.hidden) energySheet.hidden = true;
   else if (!sheet.hidden) closeSheet();
 });
 
