@@ -235,7 +235,9 @@ let decodeFrame = null;    // (video) => Promise<string|null>
 let zbarModule = null;     // cached WASM module
 
 const BARCODE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "codabar"];
-const ZBAR_URL = "https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/index.js";
+// Inlined ESM build: real `export`s + the WASM embedded as base64, so there's no
+// second cross-origin fetch (the plain dist/index.js is NOT an ES module).
+const ZBAR_URL = "https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.11.0/dist/inlined/index.mjs";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function startScanner() {
@@ -273,6 +275,9 @@ async function buildDecoder() {
   }
   // ZBar WASM fallback — decode a downscaled frame off a canvas.
   zbarModule = zbarModule || (await import(ZBAR_URL));
+  if (typeof zbarModule.scanImageData !== "function") {
+    throw new Error("ZBar module did not load correctly");
+  }
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   return async (video) => {
