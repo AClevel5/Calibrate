@@ -242,5 +242,5 @@
 
 {% block scripts %}
 <script>window.CALIBRATE_DATE = "{{ s.day.isoformat() }}";</script>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v={{ asset_v }}"></script>
 {% endblock %}

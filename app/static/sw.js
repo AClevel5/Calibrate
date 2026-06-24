@@ -1,7 +1,7 @@
 /* Calibrate service worker: network-first for all same-origin requests so a
    deploy is picked up immediately when online; the cache is only an offline
    fallback. This avoids stale JS/CSS (a fresh page + an old cached app.js). */
-const CACHE = "calibrate-v18";
+const CACHE = "calibrate-v19";
 const SHELL = ["/static/styles.css", "/static/app.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
