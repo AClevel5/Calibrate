@@ -30,6 +30,33 @@
 </section>
 
 <section class="card">
+  <h2>My foods</h2>
+  <p class="hint">Foods you've created. Edits apply to future logs and search;
+    entries you've already logged keep their original values.</p>
+  {% if custom_foods %}
+  <ul class="myfoods">
+    {% for f in custom_foods %}
+    {% set serving = f.serving_size_g or 100 %}
+    <li data-id="{{ f.id }}"
+        data-name="{{ f.name }}" data-brand="{{ f.brand or '' }}"
+        data-serving="{{ serving }}"
+        data-cal100="{{ f.calories }}" data-pro100="{{ f.protein }}"
+        data-carb100="{{ f.carbs }}" data-fat100="{{ f.fat }}">
+      <div class="mf-main">
+        <span class="mf-name">{{ f.name }}{% if f.brand %} <small>{{ f.brand }}</small>{% endif %}</span>
+        <span class="mf-sub">{{ (f.calories * serving / 100) | num }} cal · {{ serving | num }} g serving</span>
+      </div>
+      <button class="mf-edit" type="button">Edit</button>
+      <button class="mf-del" type="button" aria-label="Delete">✕</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No custom foods yet. Create one with “＋ Create a food” when adding food.</p>
+  {% endif %}
+</section>
+
+<section class="card">
   <h2>Apple Health sync</h2>
   <p class="hint">Set up an Apple Shortcut to POST your daily Active + Resting
     energy here. See the README for the full recipe.</p>
@@ -41,4 +68,80 @@
   </label>
   <p class="hint">Keep this token private — it lets a device write energy data to your account.</p>
 </section>
+
+<!-- Edit custom food -->
+<div class="sheet-backdrop" id="mf-sheet" hidden>
+  <div class="sheet">
+    <div class="sheet-head"><strong>Edit food</strong>
+      <button class="close-btn" id="mf-close">✕</button></div>
+    <form id="mf-form">
+      <label>Name <input id="mf-name" type="text" required></label>
+      <label>Brand <small>(optional)</small> <input id="mf-brand" type="text"></label>
+      <label>Serving size (g)
+        <input id="mf-serving" type="number" min="1" step="any" inputmode="decimal"></label>
+      <div class="cf-grid">
+        <label>Calories <input id="mf-cal" type="number" min="0" step="any" inputmode="decimal"></label>
+        <label>Protein (g) <input id="mf-pro" type="number" min="0" step="any" inputmode="decimal"></label>
+        <label>Carbs (g) <input id="mf-carb" type="number" min="0" step="any" inputmode="decimal"></label>
+        <label>Fat (g) <input id="mf-fat" type="number" min="0" step="any" inputmode="decimal"></label>
+      </div>
+      <p class="hint">Enter values per serving, as on the label.</p>
+      <button type="submit" class="primary">Save changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var sheet = $("mf-sheet");
+  if (!sheet) return;
+  var editingId = null;
+  function round(x, dp) { var m = Math.pow(10, dp || 0); return Math.round((Number(x) || 0) * m) / m; }
+  function openEdit(d) {
+    editingId = d.id;
+    var serv = Number(d.serving) || 100, f = serv / 100;
+    $("mf-name").value = d.name;
+    $("mf-brand").value = d.brand;
+    $("mf-serving").value = serv;
+    $("mf-cal").value = round(Number(d.cal100) * f);
+    $("mf-pro").value = round(Number(d.pro100) * f, 1);
+    $("mf-carb").value = round(Number(d.carb100) * f, 1);
+    $("mf-fat").value = round(Number(d.fat100) * f, 1);
+    sheet.hidden = false;
+  }
+  function close() { sheet.hidden = true; }
+  document.querySelectorAll(".myfoods li").forEach(function (li) {
+    li.querySelector(".mf-edit").addEventListener("click", function () { openEdit(li.dataset); });
+    li.querySelector(".mf-del").addEventListener("click", async function () {
+      if (!confirm("Delete “" + li.dataset.name + "”?")) return;
+      var r = await fetch("/api/custom-foods/" + li.dataset.id, { method: "DELETE" });
+      if (r.ok) location.reload(); else alert("Could not delete.");
+    });
+  });
+  $("mf-close").addEventListener("click", close);
+  sheet.addEventListener("click", function (e) { if (e.target === sheet) close(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+  $("mf-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var serving = Number($("mf-serving").value);
+    if (!$("mf-name").value.trim() || !serving || serving <= 0) return;
+    var r = await fetch("/api/custom-foods/" + editingId, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: $("mf-name").value.trim(),
+        brand: $("mf-brand").value.trim() || null,
+        serving_size_g: serving,
+        calories: Number($("mf-cal").value) || 0,
+        protein: Number($("mf-pro").value) || 0,
+        carbs: Number($("mf-carb").value) || 0,
+        fat: Number($("mf-fat").value) || 0,
+      }),
+    });
+    if (r.ok) location.reload(); else alert("Could not save.");
+  });
+})();
+</script>
 {% endblock %}

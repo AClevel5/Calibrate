@@ -419,20 +419,141 @@ $("#edit-delete").addEventListener("click", async () => {
   if (res.ok) location.reload(); else toast("Could not delete.");
 });
 
+// ---- create a custom food (+ scan nutrition label) ---------------------------
+const createSheet = $("#create-sheet");
+let labelStream = null;
+
+$("#open-create").addEventListener("click", () => openCreate($("#food-q").value.trim()));
+
+function openCreate(prefillName) {
+  $("#create-form").reset();
+  $("#cf-name").value = prefillName || "";
+  $("#cf-serving").value = 100;
+  hideLabelCam();
+  sheet.hidden = true;            // close the add-food sheet behind it
+  createSheet.hidden = false;
+}
+function closeCreate() { stopLabelCam(); createSheet.hidden = true; }
+$("#create-close").addEventListener("click", closeCreate);
+createSheet.addEventListener("click", (e) => { if (e.target === createSheet) closeCreate(); });
+
+$("#create-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("#cf-name").value.trim();
+  const serving = Number($("#cf-serving").value);
+  if (!name || !serving || serving <= 0) { toast("Name and serving size are required."); return; }
+  const res = await fetch("/api/custom-foods", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name, brand: $("#cf-brand").value.trim() || null, serving_size_g: serving,
+      calories: Number($("#cf-cal").value) || 0, protein: Number($("#cf-pro").value) || 0,
+      carbs: Number($("#cf-carb").value) || 0, fat: Number($("#cf-fat").value) || 0,
+    }),
+  });
+  if (!res.ok) { toast("Could not save food."); return; }
+  const p = await res.json();  // per-100 g Product
+  const logRes = await fetch("/api/entries", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      log_date: DATE, meal: currentMeal, name: p.name, brand: p.brand,
+      quantity_g: p.serving_size_g || serving,
+      calories: p.calories, protein: p.protein, carbs: p.carbs, fat: p.fat,
+      source: p.source, source_id: p.source_id,
+    }),
+  });
+  if (logRes.ok) location.reload(); else toast("Saved to your foods, but couldn't log it.");
+});
+
+// nutrition-label OCR (Tesseract.js, lazy-loaded only when used)
+$("#scan-label-btn").addEventListener("click", startLabelCam);
+$("#label-cancel").addEventListener("click", stopLabelCam);
+$("#label-capture").addEventListener("click", captureLabel);
+
+async function startLabelCam() {
+  $("#label-status").textContent = "";
+  $("#label-cam").hidden = false;
+  $("#create-form").hidden = true;
+  try {
+    labelStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+  } catch (_) { toast("Camera access denied."); hideLabelCam(); return; }
+  const v = $("#label-video");
+  v.srcObject = labelStream;
+  await v.play();
+}
+
+function stopLabelCam() {
+  if (labelStream) { labelStream.getTracks().forEach((t) => t.stop()); labelStream = null; }
+  const v = $("#label-video"); if (v) v.srcObject = null;
+  hideLabelCam();
+}
+function hideLabelCam() { $("#label-cam").hidden = true; $("#create-form").hidden = false; }
+
+async function captureLabel() {
+  const v = $("#label-video");
+  if (!v || !v.videoWidth) return;
+  const canvas = document.createElement("canvas");
+  canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+  canvas.getContext("2d").drawImage(v, 0, 0);
+  if (labelStream) { labelStream.getTracks().forEach((t) => t.stop()); labelStream = null; }
+  v.srcObject = null;
+  $("#label-status").textContent = "Reading label… first use downloads the OCR engine.";
+  try {
+    const T = await loadTesseract();
+    const out = await T.recognize(canvas, "eng");
+    applyLabelText((out && out.data && out.data.text) || "");
+    hideLabelCam();
+  } catch (_) {
+    $("#label-status").textContent = "Couldn't read the label — please enter the values manually.";
+  }
+}
+
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+    s.onload = () => resolve(window.Tesseract);
+    s.onerror = () => reject(new Error("tesseract load failed"));
+    document.head.appendChild(s);
+  });
+}
+
+function applyLabelText(text) {
+  const t = (text || "").replace(/\s+/g, " ");
+  const grab = (re) => { const m = t.match(re); return m ? m[1] : null; };
+  const cal = grab(/calories\s*:?\s*([0-9]{1,4})/i);
+  const fat = grab(/total\s*fat\s*:?\s*([0-9]+(?:\.[0-9]+)?)\s*g/i) || grab(/\bfat\s+([0-9]+(?:\.[0-9]+)?)\s*g/i);
+  const carb = grab(/total\s*carb\w*\s*:?\s*([0-9]+(?:\.[0-9]+)?)\s*g/i) || grab(/carbohydrate\w*\s*:?\s*([0-9]+(?:\.[0-9]+)?)\s*g/i);
+  const pro = grab(/protein\s*:?\s*([0-9]+(?:\.[0-9]+)?)\s*g/i);
+  const serv = grab(/serving\s*size[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*g/i);
+  let n = 0;
+  if (cal) { $("#cf-cal").value = cal; n++; }
+  if (pro) { $("#cf-pro").value = pro; n++; }
+  if (carb) { $("#cf-carb").value = carb; n++; }
+  if (fat) { $("#cf-fat").value = fat; n++; }
+  if (serv) $("#cf-serving").value = serv;
+  toast(n ? `Filled ${n} field${n > 1 ? "s" : ""} — please double-check.` : "Couldn't read the label — enter manually.");
+}
+
 // ---- global sheet behaviour: Escape closes, lock background scroll -----------
 function syncScrollLock() {
   document.body.classList.toggle(
-    "sheet-open", !sheet.hidden || !energySheet.hidden || !editSheet.hidden
+    "sheet-open",
+    !sheet.hidden || !energySheet.hidden || !editSheet.hidden || !createSheet.hidden
   );
 }
 // Keep the scroll lock in sync however a sheet was opened or closed.
 const sheetObserver = new MutationObserver(syncScrollLock);
-[sheet, energySheet, editSheet].forEach((el) =>
+[sheet, energySheet, editSheet, createSheet].forEach((el) =>
   sheetObserver.observe(el, { attributes: true, attributeFilter: ["hidden"] }));
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (!editSheet.hidden) editSheet.hidden = true;
+  if (!$("#label-cam").hidden) { stopLabelCam(); return; }
+  if (!createSheet.hidden) closeCreate();
+  else if (!editSheet.hidden) editSheet.hidden = true;
   else if (!energySheet.hidden) energySheet.hidden = true;
   else if (!sheet.hidden) closeSheet();
 });

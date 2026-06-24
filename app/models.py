@@ -117,6 +117,28 @@ class Favorite(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class CustomFood(Base):
+    """A food the user created by hand (or from a scanned nutrition label) when it
+    wasn't in any database. Nutrition is stored per 100 g; it shows up in search."""
+
+    __tablename__ = "custom_foods"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    brand: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    serving_size_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # per 100 g
+    calories: Mapped[float] = mapped_column(Float, default=0)
+    protein: Mapped[float] = mapped_column(Float, default=0)
+    carbs: Mapped[float] = mapped_column(Float, default=0)
+    fat: Mapped[float] = mapped_column(Float, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class EnergyRecord(Base):
     """Per-day energy expenditure. TDEE = active + resting, typically pushed from
     Apple Health (Active Energy + Resting Energy) but editable by hand."""

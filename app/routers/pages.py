@@ -2,11 +2,12 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import require_page_user
-from ..models import MEALS, User
+from ..models import MEALS, CustomFood, User
 from ..services.days import get_day_summary, get_week_summaries, week_bounds
 from ..templating import templates
 
@@ -81,13 +82,23 @@ def week_view(
 def settings_page(
     request: Request,
     user: User = Depends(require_page_user),
+    db: Session = Depends(get_db),
     saved: bool = False,
 ):
     ingest_url = str(request.base_url).rstrip("/") + "/api/health/energy"
+    custom_foods = db.scalars(
+        select(CustomFood).where(CustomFood.user_id == user.id).order_by(CustomFood.name)
+    ).all()
     return templates.TemplateResponse(
         request,
         "settings.html",
-        {"user": user, "today": date.today(), "ingest_url": ingest_url, "saved": saved},
+        {
+            "user": user,
+            "today": date.today(),
+            "ingest_url": ingest_url,
+            "saved": saved,
+            "custom_foods": custom_foods,
+        },
     )
 
 

@@ -1,6 +1,6 @@
 /* Calibrate service worker: cache the app shell, network-first for everything
    else so logged data and lookups always hit the server when online. */
-const CACHE = "calibrate-v15";
+const CACHE = "calibrate-v17";
 const SHELL = ["/static/styles.css", "/static/app.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {

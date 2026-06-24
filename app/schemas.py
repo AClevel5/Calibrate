@@ -58,6 +58,18 @@ class FavoriteCreate(BaseModel):
     source_id: str | None = None
 
 
+class CustomFoodCreate(BaseModel):
+    name: str
+    brand: str | None = None
+    serving_size_g: float = Field(gt=0, default=100)
+    # nutrition entered PER SERVING (as printed on the label); the server stores
+    # it normalized to per 100 g.
+    calories: float = 0
+    protein: float = 0
+    carbs: float = 0
+    fat: float = 0
+
+
 class GoalUpdate(BaseModel):
     goal_calories: float = 0
     goal_protein: float = 0

@@ -104,6 +104,8 @@
       <button class="close-btn" id="sheet-close">✕</button>
     </div>
 
+    <button class="create-food-btn" id="open-create">＋ Create a food</button>
+
     <div class="search-row">
       <input id="food-q" type="search" placeholder="Search foods…" autocomplete="off">
       <button id="scan-btn" title="Scan barcode" aria-label="Scan barcode">
@@ -184,6 +186,56 @@
       <button type="submit" class="primary">Save changes</button>
       <button type="button" class="link-btn danger" id="edit-delete">Delete entry</button>
     </form>
+  </div>
+</div>
+
+<!-- Create food sheet -->
+<div class="sheet-backdrop" id="create-sheet" hidden>
+  <div class="sheet search-sheet">
+    <div class="sheet-head"><strong>Create a food</strong>
+      <button class="close-btn" id="create-close">✕</button></div>
+    <div class="sheet-scroll">
+      <div id="label-cam" hidden>
+        <div id="label-stage"><video id="label-video" playsinline muted></video></div>
+        <p class="scan-hint">Fill the frame with the Nutrition Facts panel, then capture.</p>
+        <div class="row-2">
+          <button type="button" class="primary" id="label-capture">Capture</button>
+          <button type="button" class="link-btn" id="label-cancel">Cancel</button>
+        </div>
+        <p class="hint" id="label-status"></p>
+      </div>
+
+      <form id="create-form">
+        <button type="button" class="scan-label-btn" id="scan-label-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <rect x="3" y="5" width="1.6" height="14" rx=".3"/><rect x="6" y="5" width=".9" height="14" rx=".3"/>
+            <rect x="8.2" y="5" width="2" height="14" rx=".3"/><rect x="11.4" y="5" width="1" height="14" rx=".3"/>
+            <rect x="13.6" y="5" width="1.7" height="14" rx=".3"/><rect x="16.4" y="5" width=".9" height="14" rx=".3"/>
+            <rect x="18.6" y="5" width="1.9" height="14" rx=".3"/>
+          </svg>
+          Scan nutrition label
+        </button>
+
+        <label>Name
+          <input id="cf-name" type="text" required placeholder="e.g. Grandma's chili"></label>
+        <label>Brand <small>(optional)</small>
+          <input id="cf-brand" type="text"></label>
+        <label>Serving size (g)
+          <input id="cf-serving" type="number" min="1" step="any" value="100" inputmode="decimal"></label>
+        <div class="cf-grid">
+          <label>Calories
+            <input id="cf-cal" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label>Protein (g)
+            <input id="cf-pro" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label>Carbs (g)
+            <input id="cf-carb" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label>Fat (g)
+            <input id="cf-fat" type="number" min="0" step="any" inputmode="decimal"></label>
+        </div>
+        <p class="hint">Enter values <b>per serving</b>, as printed on the label.</p>
+        <button type="submit" class="primary">Save &amp; log one serving</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

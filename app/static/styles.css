@@ -291,6 +291,48 @@ form label { display: block; margin: 12px 0 6px; color: var(--muted); font-size:
 }
 .hint { color: var(--muted); font-size: .8rem; }
 .link-btn.danger { color: var(--danger); display: block; width: 100%; text-align: center; margin-top: 6px; }
+
+/* Create-a-food */
+.create-food-btn {
+  width: 100%; margin-bottom: 10px; padding: 11px; border: 1px dashed #ffffff2e;
+  background: none; color: var(--accent); border-radius: 12px; font: inherit; font-weight: 600; cursor: pointer;
+}
+.create-food-btn:hover { background: var(--card); }
+.scan-label-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 12px; margin-bottom: 14px; border: none; border-radius: 12px;
+  background: var(--card); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+.scan-label-btn:hover { background: var(--card-2); }
+.cf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cf-grid label { margin-top: 0; }
+.row-2 { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.row-2 .primary { margin-top: 0; }
+.row-2 .link-btn { flex: none; }
+#label-stage {
+  position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 52vh;
+  background: #000; border-radius: 12px; overflow: hidden;
+}
+#label-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+#label-status { margin-top: 8px; min-height: 1em; }
+
+/* My foods (Settings) */
+.myfoods { list-style: none; margin: 10px 0 0; padding: 0; }
+.myfoods li {
+  display: flex; align-items: center; gap: 10px; padding: 12px;
+  background: var(--card); border-radius: 12px; margin-bottom: 8px;
+}
+.mf-main { flex: 1; min-width: 0; }
+.mf-name { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mf-name small { color: var(--muted); font-weight: 400; }
+.mf-sub { color: var(--muted); font-size: .78rem; }
+.mf-edit {
+  flex: none; background: none; border: 1px solid #ffffff24; color: var(--text);
+  border-radius: 8px; padding: 6px 12px; font: inherit; font-weight: 500; cursor: pointer;
+}
+.mf-edit:hover { background: var(--card-2); }
+.mf-del { flex: none; background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; }
+.mf-del:hover { color: var(--danger); }
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   background: var(--card-2); color: var(--text); padding: 12px 18px;

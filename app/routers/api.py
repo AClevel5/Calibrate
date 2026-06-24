@@ -4,10 +4,31 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import require_api_user
-from ..models import EnergyRecord, Favorite, FoodEntry, User
-from ..schemas import EnergyUpdate, EntryCreate, EntryUpdate, FavoriteCreate, Product
+from ..models import CustomFood, EnergyRecord, Favorite, FoodEntry, User
+from ..schemas import (
+    CustomFoodCreate,
+    EnergyUpdate,
+    EntryCreate,
+    EntryUpdate,
+    FavoriteCreate,
+    Product,
+)
 from ..services import foodfacts
 from ..services.nutrition import Macros, scale_per_100g
+
+
+def _custom_to_product(c: CustomFood) -> Product:
+    return Product(
+        source="custom",
+        source_id=str(c.id),
+        name=c.name,
+        brand=c.brand,
+        serving_size_g=c.serving_size_g,
+        calories=c.calories,
+        protein=c.protein,
+        carbs=c.carbs,
+        fat=c.fat,
+    )
 
 router = APIRouter(prefix="/api")
 
@@ -24,8 +45,96 @@ async def barcode_lookup(barcode: str, user: User = Depends(require_api_user)):
 
 
 @router.get("/foods/search", response_model=list[Product])
-async def food_search(q: str = Query(min_length=2), user: User = Depends(require_api_user)):
-    return await foodfacts.search_foods(q.strip())
+async def food_search(
+    q: str = Query(min_length=2),
+    user: User = Depends(require_api_user),
+    db: Session = Depends(get_db),
+):
+    query = q.strip()
+    # The user's own custom foods come first, then external sources.
+    customs = db.scalars(
+        select(CustomFood)
+        .where(CustomFood.user_id == user.id, CustomFood.name.ilike(f"%{query}%"))
+        .order_by(CustomFood.name)
+        .limit(8)
+    )
+    results = [_custom_to_product(c) for c in customs]
+    seen = {(p.name.lower(), (p.brand or "").lower()) for p in results}
+    for p in await foodfacts.search_foods(query):
+        key = (p.name.lower(), (p.brand or "").lower())
+        if key not in seen:
+            seen.add(key)
+            results.append(p)
+    return results
+
+
+# ---------------------------------------------------------------- custom foods
+
+
+@router.post("/custom-foods", response_model=Product)
+def create_custom_food(
+    payload: CustomFoodCreate,
+    user: User = Depends(require_api_user),
+    db: Session = Depends(get_db),
+):
+    factor = 100.0 / payload.serving_size_g  # per-serving values -> per 100 g
+    food = CustomFood(
+        user_id=user.id,
+        name=payload.name.strip(),
+        brand=(payload.brand or None),
+        serving_size_g=payload.serving_size_g,
+        calories=round(payload.calories * factor, 2),
+        protein=round(payload.protein * factor, 2),
+        carbs=round(payload.carbs * factor, 2),
+        fat=round(payload.fat * factor, 2),
+    )
+    db.add(food)
+    db.commit()
+    db.refresh(food)
+    return _custom_to_product(food)
+
+
+@router.patch("/custom-foods/{food_id}", response_model=Product)
+def update_custom_food(
+    food_id: int,
+    payload: CustomFoodCreate,
+    user: User = Depends(require_api_user),
+    db: Session = Depends(get_db),
+):
+    food = db.get(CustomFood, food_id)
+    if not food or food.user_id != user.id:
+        raise HTTPException(404, detail="Custom food not found.")
+    factor = 100.0 / payload.serving_size_g  # per-serving values -> per 100 g
+    food.name = payload.name.strip()
+    food.brand = payload.brand or None
+    food.serving_size_g = payload.serving_size_g
+    food.calories = round(payload.calories * factor, 2)
+    food.protein = round(payload.protein * factor, 2)
+    food.carbs = round(payload.carbs * factor, 2)
+    food.fat = round(payload.fat * factor, 2)
+    db.commit()
+    db.refresh(food)
+    return _custom_to_product(food)
+
+
+@router.get("/custom-foods", response_model=list[Product])
+def list_custom_foods(user: User = Depends(require_api_user), db: Session = Depends(get_db)):
+    foods = db.scalars(
+        select(CustomFood).where(CustomFood.user_id == user.id).order_by(CustomFood.name)
+    )
+    return [_custom_to_product(f) for f in foods]
+
+
+@router.delete("/custom-foods/{food_id}")
+def delete_custom_food(
+    food_id: int, user: User = Depends(require_api_user), db: Session = Depends(get_db)
+):
+    food = db.get(CustomFood, food_id)
+    if not food or food.user_id != user.id:
+        raise HTTPException(404, detail="Custom food not found.")
+    db.delete(food)
+    db.commit()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- entries
