@@ -1,6 +1,7 @@
-/* Calibrate service worker: cache the app shell, network-first for everything
-   else so logged data and lookups always hit the server when online. */
-const CACHE = "calibrate-v17";
+/* Calibrate service worker: network-first for all same-origin requests so a
+   deploy is picked up immediately when online; the cache is only an offline
+   fallback. This avoids stale JS/CSS (a fresh page + an old cached app.js). */
+const CACHE = "calibrate-v18";
 const SHELL = ["/static/styles.css", "/static/app.js", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
@@ -29,26 +30,8 @@ self.addEventListener("fetch", (e) => {
   // Never cache API calls.
   if (url.pathname.startsWith("/api/")) return;
 
-  // Stale-while-revalidate for static assets: serve cache fast, but always
-  // refresh it in the background so the next load picks up deploys.
-  if (url.pathname.startsWith("/static/") || url.pathname === "/manifest.webmanifest") {
-    e.respondWith(
-      caches.open(CACHE).then((cache) =>
-        cache.match(request).then((hit) => {
-          const fresh = fetch(request)
-            .then((res) => {
-              cache.put(request, res.clone());
-              return res;
-            })
-            .catch(() => hit);
-          return hit || fresh;
-        })
-      )
-    );
-    return;
-  }
-
-  // Network-first for pages, fall back to cache when offline.
+  // Network-first for pages AND static assets: always current when online,
+  // fall back to the cached copy only when offline.
   e.respondWith(
     fetch(request)
       .then((res) => {

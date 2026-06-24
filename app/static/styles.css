@@ -294,10 +294,13 @@ form label { display: block; margin: 12px 0 6px; color: var(--muted); font-size:
 
 /* Create-a-food */
 .create-food-btn {
-  width: 100%; margin-bottom: 10px; padding: 11px; border: 1px dashed #ffffff2e;
-  background: none; color: var(--accent); border-radius: 12px; font: inherit; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; margin-bottom: 10px; padding: 12px; border: none; border-radius: 12px;
+  background: var(--card); color: var(--accent);
+  font: inherit; font-size: .95rem; font-weight: 600; cursor: pointer;
 }
-.create-food-btn:hover { background: var(--card); }
+.create-food-btn:hover { background: var(--card-2); }
+.create-food-btn:active { transform: scale(.99); }
 .scan-label-btn {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; padding: 12px; margin-bottom: 14px; border: none; border-radius: 12px;
