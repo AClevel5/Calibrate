@@ -1,6 +1,17 @@
+import re
 from datetime import date
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _to_kcal(value):
+    """Accept a plain number, or a string like '620', '620 Cal', '1,700 kcal' —
+    Apple Shortcuts often sends the value as text (with a unit) to strip Health
+    tainting. Pull the first number out; anything unparseable becomes 0."""
+    if isinstance(value, str):
+        m = re.search(r"[-+]?\d*\.?\d+", value.replace(",", ""))
+        return float(m.group()) if m else 0.0
+    return value
 
 
 class Product(BaseModel):
@@ -43,6 +54,8 @@ class EnergyUpdate(BaseModel):
     active_kcal: float = 0
     resting_kcal: float = 0
     source: str = "manual"
+
+    _parse_energy = field_validator("active_kcal", "resting_kcal", mode="before")(_to_kcal)
 
 
 class FavoriteCreate(BaseModel):
