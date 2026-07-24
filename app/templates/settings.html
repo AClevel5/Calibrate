@@ -30,6 +30,21 @@
 </section>
 
 <section class="card">
+  <h2>Resting energy (BMR)</h2>
+  <p class="hint">When set, Calibrate uses this <b>fixed value</b> for resting energy
+    every day and takes only <b>Active</b> energy from Apple Health — so watch
+    glitches and taking it off early never affect your resting burn.
+    Set to 0 to instead use whatever resting your watch reports.</p>
+  <form method="post" action="/settings">
+    <label>Resting energy / BMR (kcal/day)
+      <input type="number" name="resting_bmr" min="0" step="1"
+             value="{{ user.resting_bmr | round | int }}" placeholder="e.g. 1833">
+    </label>
+    <button type="submit" class="primary">Save</button>
+  </form>
+</section>
+
+<section class="card">
   <h2>My foods</h2>
   <p class="hint">Foods you've created. Edits apply to future logs and search;
     entries you've already logged keep their original values.</p>

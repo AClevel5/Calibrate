@@ -39,3 +39,20 @@ def init_db() -> None:
     from . import models  # noqa: F401  (register models on Base)
 
     Base.metadata.create_all(bind=engine)
+    # Lightweight migrations for columns added to existing tables (create_all
+    # only creates new tables, it never alters an existing one).
+    _ensure_column("users", "resting_bmr", default="0")
+
+
+def _ensure_column(table: str, column: str, default: str) -> None:
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    existing = {c["name"] for c in inspector.get_columns(table)}
+    if column in existing:
+        return
+    col_type = "REAL" if engine.dialect.name == "sqlite" else "DOUBLE PRECISION"
+    with engine.begin() as conn:
+        conn.execute(
+            text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type} DEFAULT {default}")
+        )

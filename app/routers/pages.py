@@ -26,7 +26,7 @@ def day_view(
     user: User = Depends(require_page_user),
     db: Session = Depends(get_db),
 ):
-    summary = get_day_summary(db, user.id, day)
+    summary = get_day_summary(db, user.id, day, user.resting_bmr)
     by_meal = {m: [] for m in MEALS}
     for e in summary.entries:
         by_meal.get(e.meal, by_meal["snack"]).append(e)
@@ -52,7 +52,7 @@ def week_view(
     user: User = Depends(require_page_user),
     db: Session = Depends(get_db),
 ):
-    summaries = get_week_summaries(db, user.id, day)
+    summaries = get_week_summaries(db, user.id, day, user.resting_bmr)
     monday, sunday = week_bounds(day)
     totals = {
         "consumed": sum(s.consumed.calories for s in summaries),
@@ -107,14 +107,23 @@ def save_settings(
     request: Request,
     user: User = Depends(require_page_user),
     db: Session = Depends(get_db),
-    goal_calories: float = Form(0),
-    goal_protein: float = Form(0),
-    goal_carbs: float = Form(0),
-    goal_fat: float = Form(0),
+    goal_calories: float | None = Form(None),
+    goal_protein: float | None = Form(None),
+    goal_carbs: float | None = Form(None),
+    goal_fat: float | None = Form(None),
+    resting_bmr: float | None = Form(None),
 ):
-    user.goal_calories = max(0, goal_calories)
-    user.goal_protein = max(0, goal_protein)
-    user.goal_carbs = max(0, goal_carbs)
-    user.goal_fat = max(0, goal_fat)
+    # Only touch fields that this particular form actually submitted, so the
+    # goals form and the BMR form don't clobber each other's values.
+    if goal_calories is not None:
+        user.goal_calories = max(0, goal_calories)
+    if goal_protein is not None:
+        user.goal_protein = max(0, goal_protein)
+    if goal_carbs is not None:
+        user.goal_carbs = max(0, goal_carbs)
+    if goal_fat is not None:
+        user.goal_fat = max(0, goal_fat)
+    if resting_bmr is not None:
+        user.resting_bmr = max(0, resting_bmr)
     db.commit()
     return RedirectResponse("/settings?saved=true", status_code=303)

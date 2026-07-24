@@ -32,6 +32,11 @@ class User(Base):
     goal_carbs: Mapped[float] = mapped_column(Float, default=0)
     goal_fat: Mapped[float] = mapped_column(Float, default=0)
 
+    # Fixed daily resting energy (BMR). When > 0, it's used for resting every
+    # day and the watch's resting reading is ignored (only Active is taken from
+    # Health). 0 = fall back to the watch's synced resting.
+    resting_bmr: Mapped[float] = mapped_column(Float, default=0)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

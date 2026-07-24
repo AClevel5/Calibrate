@@ -28,7 +28,9 @@ class DaySummary:
         return self.consumed.calories - self.tdee
 
 
-def get_day_summary(db: Session, user_id: int, day: date) -> DaySummary:
+def get_day_summary(
+    db: Session, user_id: int, day: date, resting_bmr: float = 0.0
+) -> DaySummary:
     entries = list(
         db.scalars(
             select(FoodEntry)
@@ -45,11 +47,20 @@ def get_day_summary(db: Session, user_id: int, day: date) -> DaySummary:
             EnergyRecord.user_id == user_id, EnergyRecord.record_date == day
         )
     )
+    active = energy.active_kcal if energy else 0.0
+    if resting_bmr > 0:
+        # Fixed-BMR mode: use the user's BMR for resting on any real day and
+        # ignore the watch's (unreliable) resting reading — only Active energy
+        # comes from Apple Health. Empty/future days stay at 0.
+        resting = resting_bmr if (energy is not None or entries) else 0.0
+    else:
+        # No BMR set → fall back to whatever resting the watch synced.
+        resting = energy.resting_kcal if energy else 0.0
     return DaySummary(
         day=day,
         consumed=consumed,
-        active_kcal=energy.active_kcal if energy else 0.0,
-        resting_kcal=energy.resting_kcal if energy else 0.0,
+        active_kcal=active,
+        resting_kcal=resting,
         entries=entries,
     )
 
@@ -60,6 +71,11 @@ def week_bounds(day: date) -> tuple[date, date]:
     return monday, monday + timedelta(days=6)
 
 
-def get_week_summaries(db: Session, user_id: int, day: date) -> list[DaySummary]:
+def get_week_summaries(
+    db: Session, user_id: int, day: date, resting_bmr: float = 0.0
+) -> list[DaySummary]:
     monday, _ = week_bounds(day)
-    return [get_day_summary(db, user_id, monday + timedelta(days=i)) for i in range(7)]
+    return [
+        get_day_summary(db, user_id, monday + timedelta(days=i), resting_bmr)
+        for i in range(7)
+    ]
